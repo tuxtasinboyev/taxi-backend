@@ -25,10 +25,15 @@ export class AuthController {
     @ApiBody(registerApiBody)
     async registerUser(
         @Body() body: CreateUserDto,
-        @UploadedFile() file: Express.Multer.File,
+        @UploadedFile() file?: Express.Multer.File,
     ) {
-        if(!file)throw new BadRequestException('siz rasm quyishish kerak')
-        return this.authService.registerUser(body, file.filename);
+        // if(!file)throw new BadRequestException('siz rasm quyishish kerak')
+        if(file){
+
+            return this.authService.registerUser(body, file.filename);
+        }
+        return this.authService.registerUser(body);
+
     }
 
     @Post('login/email')

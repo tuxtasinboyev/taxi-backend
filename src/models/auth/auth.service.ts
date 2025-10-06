@@ -4,14 +4,14 @@ import { UserRole } from '@prisma/client';
 import * as bcrypt from "bcrypt";
 import { urlGenerator } from 'src/common/types/generator.types';
 import { DatabaseService } from 'src/config/database/database.service';
+import { OtpService } from 'src/config/email-service/otp/otp.service';
 import { JwtServices } from 'src/config/jwt/jwt.service';
 import { Language } from 'src/utils/helper';
 import { CreateUserDto } from './dto/create.register.dto';
-import { OtpService } from 'src/config/email-service/otp/otp.service';
 @Injectable()
 export class AuthService {
     constructor(private prisma: DatabaseService, private jwt: JwtServices, private config: ConfigService, private otpService: OtpService) { }
-    async registerUser(data: CreateUserDto, photoUrl: string) {
+    async registerUser(data: CreateUserDto, photoUrl?: string) {
         const existsEmail = await this.prisma.user.findUnique({
             where: { email: data.email }
         })
@@ -21,7 +21,10 @@ export class AuthService {
         if (existsEmail || existsPhone) {
             throw new ConflictException('this user already exists')
         }
-        const photo = urlGenerator(this.config, photoUrl)
+        let photo;
+        if (photoUrl) {
+            photo = urlGenerator(this.config, photoUrl)
+        }
         const passwordHash = await bcrypt.hash(data.password, 10)
         if (data.lang === Language.en) {
             const createUser = await this.prisma.user.create({
