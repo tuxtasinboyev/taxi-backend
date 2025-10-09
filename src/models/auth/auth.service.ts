@@ -164,6 +164,7 @@ export class AuthService {
 
         const passwordHash = await bcrypt.hash(newPassword, 10);
 
+        
         await this.prisma.user.update({
             where: { email },
             data: { password_hash: passwordHash },
