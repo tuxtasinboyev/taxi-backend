@@ -224,7 +224,7 @@ export const getAllUser = {
             timestamp: '2024-01-15T10:30:00.000Z'
         }
     }
-} 
+}
 export const putRessponse = {
     status: 200,
     description: 'Profile updated successfully',
@@ -250,4 +250,54 @@ export const putRessponse = {
             }
         }
     }
+}
+export const getMeResponseDriver = {
+    status: 200,
+    description: 'Driver profile retrieved successfully',
+    schema: {
+        example: {
+            success: true,
+            message: 'Driver retrieved successfully',
+            data: {
+                id: 'uuid',
+                name_uz: 'Azizbek',
+                phone: '+998901234567',
+                email: 'azizbek@example.com',
+                profile_photo: 'https://example.com/uploads/photo.jpg',
+                role: 'driver',
+                driver: {
+                    car_model_uz: 'Cobalt',
+                    car_color_uz: 'Oq',
+                    car_number: '80A123BC',
+                    status: 'offline',
+                    rating: 4.8,
+                },
+            },
+        },
+    },
+}
+export const putMeResponseDriver = {
+    status: 200,
+    description: 'Driver profile successfully updated',
+    schema: {
+        example: {
+            success: true,
+            message: 'Driver successfully updated',
+            data: {
+                user: {
+                    id: 'uuid',
+                    name_uz: 'Azizbek',
+                    phone: '+998901234567',
+                    email: 'azizbek@example.com',
+                    profile_photo: 'https://example.com/uploads/photo.jpg',
+                },
+                driver: {
+                    car_model_uz: 'Cobalt',
+                    car_color_uz: 'Oq',
+                    car_number: '80A123BC',
+                    status: 'offline',
+                },
+            },
+        },
+    },
 }
