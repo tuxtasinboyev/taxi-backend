@@ -32,7 +32,6 @@ model User {
   chatMembers   ChatParticipant[]
 }
 
-/// Haydovchilar haqida ma’lumotlar
 model Driver {
   id           String       @id @default(uuid())
   car_model_uz String?      @db.VarChar(100)
@@ -43,6 +42,7 @@ model Driver {
   car_color_en String?      @db.VarChar(50)
   car_number   String       @unique
   status       DriverStatus @default(offline)
+  last_seen_at DateTime     @default(now())
   rating       Decimal?     @db.Decimal(3, 2)
   created_at   DateTime     @default(now())
   updated_at   DateTime     @updatedAt

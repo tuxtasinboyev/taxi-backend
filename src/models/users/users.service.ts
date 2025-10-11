@@ -31,6 +31,7 @@ export class UsersService {
                     password_hash: passwordHash
                 }
             })
+
             const { password_hash, ...safeUser } = createUser
             return {
                 user: safeUser
@@ -70,6 +71,8 @@ export class UsersService {
             }
         }
     }
+    
+
     async getUserAll(query) {
         try {
             const {
@@ -259,6 +262,18 @@ export class UsersService {
 
         if (!user) throw new NotFoundException('User not found');
 
+        if (user.role === 'driver' && user.driver) {
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+            if (user.driver.last_seen_at && user.driver.last_seen_at < fiveMinutesAgo && user.driver.status === 'online') {
+                await this.prisma.driver.update({
+                    where: { id: user.id },
+                    data: { status: 'offline' },
+                });
+                user.driver.status = 'offline';
+            }
+        }
+
         let driverStats: object | null = null;
         if (user.role === 'driver' && user.driver) {
             const [ratingAgg, completedOrders, totalEarnings] = await Promise.all([
@@ -290,7 +305,8 @@ export class UsersService {
                 car_model: user.driver.car_model_uz || user.driver.car_model_ru || user.driver.car_model_en,
                 car_color: user.driver.car_color_uz || user.driver.car_color_ru || user.driver.car_color_en,
                 car_number: user.driver.car_number,
-                status: user.driver.status
+                status: user.driver.status,
+                last_seen_at: user.driver.last_seen_at,
             };
         }
 
@@ -361,6 +377,7 @@ export class UsersService {
             data: response
         };
     }
+
     async updateMe(userId: string, data: Partial<CreateUserForAdminDto>, photoUrl?: string) {
         const existsUser = await this.prisma.user.findUnique({
             where: {
@@ -368,19 +385,19 @@ export class UsersService {
             }
         })
         if (!existsUser) throw new NotFoundException('user not found')
-       if(data.email){
-           const existingUserByEmail = await this.prisma.user.findUnique({
-               where: { email: data.email }
-           });
-           if (existingUserByEmail)throw new ConflictException('user already exist')
-       }
+        if (data.email) {
+            const existingUserByEmail = await this.prisma.user.findUnique({
+                where: { email: data.email }
+            });
+            if (existingUserByEmail) throw new ConflictException('user already exist')
+        }
         if (data.phone) {
             const existingUserByPhone = await this.prisma.user.findUnique({
                 where: { phone: data.phone }
             });
             if (existingUserByPhone) throw new ConflictException('user already exist')
         }
-    
+
 
         const updateData: any = {};
 
