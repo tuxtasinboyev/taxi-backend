@@ -123,7 +123,7 @@ export class UsersController {
     @ApiResponse(putRessponse)
     @ApiResponse({ status: 404, description: 'User not found' })
     @ApiResponse({ status: 409, description: 'User already exists' })
-    @UseInterceptors(FileInterceptor('photo'))
+    @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
     async updateMe(
         @Req() req: any,
         @Body() data: Partial<CreateUserForAdminDto>,
