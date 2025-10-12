@@ -1,7 +1,9 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
+    Param,
     Post,
     Put,
     Query,
@@ -26,15 +28,14 @@ import { getAllUser, getMeResponse, putRessponse } from 'src/common/types/api.re
 import { fileStorages } from 'src/common/types/upload_types';
 import { CreateUserForAdminDto } from './dto/user.dto';
 import { UsersService } from './users.service';
+import { Role } from 'src/common/decorators/role.decorator';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Users')
-
 @Controller('users')
 export class UsersController {
-    constructor(private readonly usersService: UsersService) { }
+    constructor(private readonly usersService: UsersService) {}
 
-    // @UseGuards(GuardService)
-    // @ApiBearerAuth()
     @Post()
     @ApiOperation({ summary: 'Create new user (Admin only)' })
     @ApiConsumes('multipart/form-data')
@@ -129,10 +130,20 @@ export class UsersController {
         @UploadedFile() photo?: Express.Multer.File,
     ) {
         const userId = req.user.id;
-
         if (photo) {
             return this.usersService.updateMe(userId, data, photo.filename);
         }
         return this.usersService.updateMe(userId, data);
+    }
+
+    @UseGuards(GuardService,RoleGuardService)
+    @ApiBearerAuth()
+    @Role('admin')
+    @Delete(':id')
+    @ApiOperation({ summary: 'Delete user by id' })
+    @ApiResponse({ status: 200, description: 'User deleted successfully' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async deleteUser(@Param('id') id: string) {
+        return this.usersService.deleteUser(id);
     }
 }
