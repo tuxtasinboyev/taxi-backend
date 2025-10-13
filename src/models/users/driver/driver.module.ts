@@ -6,9 +6,10 @@ import { DriverService } from './driver.service';
 import { DatabaseModule } from 'src/config/database/database.module';
 import { ConfigModules } from 'src/config/config.module';
 import { JwtModule } from '@nestjs/jwt';
+import { CategoryModule } from './category/category.module';
 
 @Module({
-  imports:[DatabaseModule,ConfigModules,JwtModule],
+  imports:[DatabaseModule,ConfigModules,JwtModule, CategoryModule],
   providers: [DriverService, DriverGateway, DriverStatusCron],
   controllers: [DriverController]
 })

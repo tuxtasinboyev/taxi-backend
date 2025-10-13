@@ -1,6 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, MinLength } from 'class-validator';
+import {
+    IsEmail,
+    IsEnum,
+    IsNotEmpty,
+    IsOptional,
+    IsPhoneNumber,
+    IsString,
+} from 'class-validator';
 import { Language } from 'src/utils/helper';
 
 export class CreateDriverDto {
@@ -32,7 +39,7 @@ export class CreateDriverDto {
         description: 'Haydovchining elektron pochtasi',
     })
     @IsEmail()
-    email:string;
+    email: string;
 
     @ApiProperty({
         example: 'StrongPassword123!',
@@ -64,4 +71,12 @@ export class CreateDriverDto {
     @IsString()
     @IsNotEmpty()
     car_number: string;
+
+    @ApiProperty({
+        example: '63d876fd-a6a5-45b0-859f-6fb9ec01b20c',
+        description: 'Taksi kategoriyasi IDsi (TaxiCategory.id)',
+    })
+    @IsString()
+    @IsNotEmpty()
+    taxi_category_id: string;
 }

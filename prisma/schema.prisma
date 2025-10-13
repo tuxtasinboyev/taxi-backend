@@ -47,8 +47,25 @@ model Driver {
   created_at   DateTime     @default(now())
   updated_at   DateTime     @updatedAt
 
-  user   User    @relation(fields: [id], references: [id], onDelete: Cascade)
-  orders Order[]
+  user           User          @relation(fields: [id], references: [id], onDelete: Cascade)
+  orders         Order[]
+  TaxiCategory   TaxiCategory? @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId String?
+}
+
+model TaxiCategory {
+  id         String   @id @default(uuid())
+  name_uz    String?  @unique @db.VarChar(50)
+  name_ru    String?  @unique @db.VarChar(50)
+  name_en    String?  @unique @db.VarChar(50)
+  icon_url   String?
+  is_active  Boolean? @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  drivers      Driver[]
+  orders       Order[]
+  pricingRules PricingRule[]
 }
 
 /// Buyurtmalar jadvali
@@ -68,12 +85,14 @@ model Order {
   updated_at   DateTime    @updatedAt
   finished_at  DateTime?
 
-  user    User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  driver  Driver?        @relation(fields: [driver_id], references: [id], onDelete: Cascade)
-  fare    FareBreakdown?
-  payment Payment?
-  reviews Review[]
-  chats   Chat[]
+  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  driver         Driver?        @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  fare           FareBreakdown?
+  payment        Payment?
+  reviews        Review[]
+  chats          Chat[]
+  TaxiCategory   TaxiCategory?  @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId String?
 }
 
 /// Safar narxini hisoblash tafsilotlari
@@ -97,21 +116,23 @@ model FareBreakdown {
 
 /// Narx qoidalari
 model PricingRule {
-  id               String    @id @default(uuid())
-  city_uz          String    @db.VarChar(100)
-  city_ru          String    @db.VarChar(100)
-  city_en          String    @db.VarChar(100)
-  base_fare        Decimal   @db.Decimal(10, 2)
-  per_km           Decimal   @db.Decimal(10, 2)
-  per_min          Decimal   @db.Decimal(10, 2)
-  surge_multiplier Decimal   @default(1.0) @db.Decimal(5, 2)
-  currency         String    @db.VarChar(10)
-  is_active        Boolean   @default(true)
+  id               String        @id @default(uuid())
+  city_uz          String        @db.VarChar(100)
+  city_ru          String        @db.VarChar(100)
+  city_en          String        @db.VarChar(100)
+  base_fare        Decimal       @db.Decimal(10, 2)
+  per_km           Decimal       @db.Decimal(10, 2)
+  per_min          Decimal       @db.Decimal(10, 2)
+  surge_multiplier Decimal       @default(1.0) @db.Decimal(5, 2)
+  currency         String        @db.VarChar(10)
+  is_active        Boolean       @default(true)
   valid_from       DateTime
   valid_to         DateTime?
   deleted_at       DateTime?
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+  TaxiCategory     TaxiCategory? @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId   String?
 }
 
 /// To‘lovlar

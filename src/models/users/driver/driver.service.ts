@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { urlGenerator } from 'src/common/types/generator.types';
 import { DatabaseService } from 'src/config/database/database.service';
@@ -21,6 +21,13 @@ export class DriverService {
 
         if (existsEmail || existsPhone) {
             throw new ConflictException('this driver already exists');
+        }
+        const existsCategory = await this.prisma.taxiCategory.findUnique({
+
+            where: { id: data.taxi_category_id },
+        });
+        if (!existsCategory) {
+            throw new ConflictException('this category not found');
         }
 
         const passwordHash = await bcrypt.hash(data.password, 10);
@@ -60,7 +67,7 @@ export class DriverService {
                     [nameField]: data.name,
                     phone: data.phone,
                     email: data.email,
-                    role: 'driver',
+                    role: UserRole.driver,
                     profile_photo: photo,
                     password_hash: passwordHash,
                 },
@@ -73,6 +80,7 @@ export class DriverService {
                     [carColorField]: data.car_color,
                     car_number: data.car_number,
                     status: 'offline',
+                    taxiCategoryId: data.taxi_category_id,
                 },
             });
 
@@ -108,7 +116,7 @@ export class DriverService {
         const offset = (pageNumber - 1) * limitNumber;
 
         const whereClause: Prisma.UserWhereInput = {
-            role: 'driver',
+            role: UserRole.driver,
             ...(search
                 ? {
                     OR: [
@@ -162,7 +170,7 @@ export class DriverService {
 
     async getDriverById(id: string) {
         const driver = await this.prisma.user.findUnique({
-            where: { id, role: 'driver' },
+            where: { id, role: UserRole.driver },
             include: { driver: true },
         });
 
@@ -183,7 +191,7 @@ export class DriverService {
     }
     async getMe(id: string) {
         const driver = await this.prisma.user.findUnique({
-            where: { id, role: 'driver' },
+            where: { id, role: UserRole.driver },
             include: { driver: true },
         });
 
@@ -203,13 +211,20 @@ export class DriverService {
         };
     }
     async updatateDriver(id: string, data: Partial<CreateDriverDto>, photoUrl?: string) {
-        const driver = await this.prisma.user.findUnique({ where: { id, role: 'driver' } });
+        const driver = await this.prisma.user.findUnique({ where: { id, role: UserRole.driver } });
 
         if (!driver) {
             return {
                 success: false,
                 message: 'Driver not found',
             };
+        }
+        const existsCategory = data.taxi_category_id ? await this.prisma.taxiCategory.findUnique({
+
+            where: { id: data.taxi_category_id },
+        }) : null;
+        if (data.taxi_category_id && !existsCategory) {
+            throw new ConflictException('this category not found');
         }
 
         if (data.email && data.email !== driver.email) {
@@ -283,6 +298,7 @@ export class DriverService {
                     ...(carModelField && data.car_model ? { [carModelField]: data.car_model } : {}),
                     ...(carColorField && data.car_color ? { [carColorField]: data.car_color } : {}),
                     car_number: data.car_number,
+                    taxiCategoryId: data.taxi_category_id,
                 },
             });
 
@@ -301,13 +317,19 @@ export class DriverService {
         };
     }
     async updateMe(id: string, data: Partial<CreateDriverDto>, photoUrl?: string) {
-        const driver = await this.prisma.user.findUnique({ where: { id, role: 'driver' } });
+        const driver = await this.prisma.user.findUnique({ where: { id, role: UserRole.driver } });
 
         if (!driver) {
             return {
                 success: false,
                 message: 'Driver not found',
             };
+        }
+        const existsCategory = data.taxi_category_id ? await this.prisma.taxiCategory.findUnique({
+            where: { id: data.taxi_category_id },
+        }) : null;
+        if (data.taxi_category_id && !existsCategory) {
+            throw new ConflictException('this category not found');
         }
 
         if (data.email && data.email !== driver.email) {
@@ -380,6 +402,7 @@ export class DriverService {
                     ...(carModelField && data.car_model ? { [carModelField]: data.car_model } : {}),
                     ...(carColorField && data.car_color ? { [carColorField]: data.car_color } : {}),
                     car_number: data.car_number,
+                    taxiCategoryId: data.taxi_category_id,
                 },
             });
 
@@ -398,7 +421,7 @@ export class DriverService {
         };
     }
     async deleteDriver(id: string) {
-        const driver = await this.prisma.user.findUnique({ where: { id, role: 'driver' } });
+        const driver = await this.prisma.user.findUnique({ where: { id, role: UserRole.driver } });
 
         if (!driver) {
             return {
