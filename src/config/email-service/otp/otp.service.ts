@@ -88,7 +88,7 @@ export class OtpService {
 
     async sendForgotPasswordOtp(email: string, lang: 'uz' | 'ru' | 'en') {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        await this.redisService.set(`forgot:${email}`, otp, 1080); // 6 min
+        await this.redisService.set(`forgot:${email}`, otp, 1800); 
 
         const { subject, message } = this.forgotPasswordTranslations[lang];
         await this.emailService.sendMail(email, subject, message(otp));
@@ -98,8 +98,10 @@ export class OtpService {
 
     async verifyForgotPasswordOtp(email: string, otp: string, lang: 'uz' | 'ru' | 'en') {
         const storedOtp = await this.redisService.get(`forgot:${email}`);
-
+        console.log(storedOtp, otp);
+        
         if (!storedOtp) {
+
             return { success: false, message: this.forgotPasswordTranslations[lang].fail };
         }
 

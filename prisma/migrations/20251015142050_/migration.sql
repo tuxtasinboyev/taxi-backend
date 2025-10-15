@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "PricingRule" ALTER COLUMN "city_uz" DROP NOT NULL,
+ALTER COLUMN "city_ru" DROP NOT NULL,
+ALTER COLUMN "city_en" DROP NOT NULL;

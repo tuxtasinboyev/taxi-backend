@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Foydalanuvchilar jadvali (yo‘lovchi, haydovchi, admin)
+/// Foydalanuvchilar jadvali (yo'lovchi, haydovchi, admin)
 model User {
   id            String   @id @default(uuid())
   name_uz       String?  @db.VarChar(100)
@@ -21,15 +21,17 @@ model User {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
-  driver        Driver?
-  orders        Order[]
-  cards         UserCard[]
-  wallet        Wallet?
-  notifications Notification[]
-  reviewsFrom   Review[]          @relation("ReviewsFrom")
-  reviewsTo     Review[]          @relation("ReviewsTo")
-  chatMessages  ChatMessage[]
-  chatMembers   ChatParticipant[]
+  driver          Driver?
+  orders          Order[]
+  cards           UserCard[]
+  wallet          Wallet?
+  notifications   Notification[]
+  reviewsFrom     Review[]          @relation("ReviewsFrom")
+  reviewsTo       Review[]          @relation("ReviewsTo")
+  chatMessages    ChatMessage[]
+  chatMembers     ChatParticipant[]
+  driverLocations DriverLocation[]
+  UserLocation    UserLocation[]
 }
 
 model Driver {
@@ -47,10 +49,45 @@ model Driver {
   created_at   DateTime     @default(now())
   updated_at   DateTime     @updatedAt
 
-  user           User          @relation(fields: [id], references: [id], onDelete: Cascade)
-  orders         Order[]
-  TaxiCategory   TaxiCategory? @relation(fields: [taxiCategoryId], references: [id])
-  taxiCategoryId String?
+  user            User             @relation(fields: [id], references: [id], onDelete: Cascade)
+  orders          Order[]
+  TaxiCategory    TaxiCategory?    @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId  String?
+  driverLocations DriverLocation[]
+}
+
+model DriverLocation {
+  id        String   @id @default(uuid())
+  driver_id String
+  order_id  String?
+  lat       Decimal  @db.Decimal(10, 8)
+  lng       Decimal  @db.Decimal(10, 8)
+  accuracy  Int?
+  speed     Decimal? @db.Decimal(5, 2)
+  bearing   Decimal? @db.Decimal(6, 2)
+  timestamp DateTime @default(now())
+
+  driver Driver  @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  order  Order?  @relation(fields: [order_id], references: [id], onDelete: SetNull)
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String?
+
+  @@index([driver_id])
+  @@index([order_id])
+  @@index([timestamp])
+}
+
+model UserLocation {
+  id        String   @id @default(uuid())
+  user_id   String
+  order_id  String?
+  lat       Decimal  @db.Decimal(10, 6)
+  lng       Decimal  @db.Decimal(10, 6)
+  accuracy  Decimal? @db.Decimal(6, 2)
+  timestamp DateTime @default(now())
+
+  user  User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [order_id], references: [id], onDelete: Cascade)
 }
 
 model TaxiCategory {
@@ -85,14 +122,16 @@ model Order {
   updated_at   DateTime    @updatedAt
   finished_at  DateTime?
 
-  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  driver         Driver?        @relation(fields: [driver_id], references: [id], onDelete: Cascade)
-  fare           FareBreakdown?
-  payment        Payment?
-  reviews        Review[]
-  chats          Chat[]
-  TaxiCategory   TaxiCategory?  @relation(fields: [taxiCategoryId], references: [id])
-  taxiCategoryId String?
+  user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  driver          Driver?          @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  fare            FareBreakdown?
+  payment         Payment?
+  reviews         Review[]
+  chats           Chat[]
+  TaxiCategory    TaxiCategory?    @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId  String?
+  driverLocations DriverLocation[]
+  UserLocation    UserLocation[]
 }
 
 /// Safar narxini hisoblash tafsilotlari
@@ -117,9 +156,9 @@ model FareBreakdown {
 /// Narx qoidalari
 model PricingRule {
   id               String        @id @default(uuid())
-  city_uz          String        @db.VarChar(100)
-  city_ru          String        @db.VarChar(100)
-  city_en          String        @db.VarChar(100)
+  city_uz          String?       @db.VarChar(100)
+  city_ru          String?       @db.VarChar(100)
+  city_en          String?       @db.VarChar(100)
   base_fare        Decimal       @db.Decimal(10, 2)
   per_km           Decimal       @db.Decimal(10, 2)
   per_min          Decimal       @db.Decimal(10, 2)
@@ -135,7 +174,7 @@ model PricingRule {
   taxiCategoryId   String?
 }
 
-/// To‘lovlar
+/// To'lovlar
 model Payment {
   id         String        @id @default(uuid())
   order_id   String        @unique
