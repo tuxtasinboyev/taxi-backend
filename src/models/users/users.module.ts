@@ -5,9 +5,10 @@ import { DriverStatusCron } from './driver/driver-status.cron';
 import { DriverModule } from './driver/driver.module';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { CardModule } from './card/card.module';
 
 @Module({
-  imports: [DatabaseModule, ConfigModules, DriverModule],
+  imports: [DatabaseModule, ConfigModules, DriverModule, CardModule],
   providers: [UsersService],
   controllers: [UsersController]
 })
