@@ -16,11 +16,11 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, 
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
 import { getMeResponseDriver, putMeResponseDriver } from 'src/common/types/api.response';
+import { fileStorages } from 'src/common/types/upload_types';
 import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { Language } from 'src/utils/helper';
 import { DriverService } from './driver.service';
 import { CreateDriverDto } from './dto/create.driver.dto';
-import { fileStorages } from 'src/common/types/upload_types';
 
 @ApiTags('Drivers')
 @Controller('drivers')
@@ -30,7 +30,7 @@ export class DriverController {
     @Post()
     @ApiOperation({ summary: 'Create new driver' })
     @ApiConsumes('multipart/form-data')
-    @UseInterceptors(FileInterceptor('photo',fileStorages(['image'])))
+    @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
     @ApiBody({
         description: 'Driver data with optional photo upload',
         schema: {
@@ -43,6 +43,7 @@ export class DriverController {
                 car_model: { type: 'string', example: 'Cobalt' },
                 car_color: { type: 'string', example: 'Oq' },
                 car_number: { type: 'string', example: '80A123BC' },
+                taxi_category_id: { type: 'string', example: 'b123d-uuid' },
                 language: { type: 'string', enum: ['uz', 'ru', 'en'], example: 'uz' },
                 photo: { type: 'string', format: 'binary' },
             },
@@ -99,7 +100,7 @@ export class DriverController {
     @Patch(':id')
     @ApiOperation({ summary: 'Update existing driver' })
     @ApiConsumes('multipart/form-data')
-    @UseInterceptors(FileInterceptor('photo',fileStorages(['image'])))
+    @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
     @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
     @ApiBody({
         description: 'Driver update data (partial)',
