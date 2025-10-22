@@ -13,6 +13,7 @@ export class PriceService {
                 data: { is_active: false }
             })
         }
+        
         if (dto.taxiCategoryId) {
             const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({ where: { id: dto.taxiCategoryId } })
             if (!existsTaxiCategory) throw new NotFoundException('Taxi category not found')
