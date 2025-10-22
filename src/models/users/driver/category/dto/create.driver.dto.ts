@@ -25,4 +25,10 @@ export class CreateTaxiCategoryDto {
     })
     @IsOptional()
     is_active?: boolean;
+
+    @ApiProperty({
+        example: 2.50,
+        description: 'Har bir kilometr uchun narx',
+    })
+    price_per_km: number;
 }

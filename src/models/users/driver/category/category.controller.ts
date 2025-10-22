@@ -38,10 +38,17 @@ export class CategoryController {
                     type: 'string',
                     format: 'binary',
                 },
+                price_per_km: {
+                    type: 'number',
+                    format: 'decimal',
+                    example: 5.50,
+                    description: 'Price per kilometer (Decimal, e.g. 10.25)',
+                },
             },
-            required: ['name', 'language', 'icon'],
+            required: ['name', 'language', 'icon', 'price_per_km'],
         },
     })
+
     @ApiResponse({ status: 201, description: 'Category created successfully' })
     @UseInterceptors(FileInterceptor('icon', fileStorages(['image'])))
     async createTaxiCategory(

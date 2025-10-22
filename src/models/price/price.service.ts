@@ -13,8 +13,10 @@ export class PriceService {
                 data: { is_active: false }
             })
         }
-        const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({ where: { id: dto.taxiCategoryId } })
-        if (!existsTaxiCategory) throw new NotFoundException('Taxi category not found')
+        if (dto.taxiCategoryId) {
+            const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({ where: { id: dto.taxiCategoryId } })
+            if (!existsTaxiCategory) throw new NotFoundException('Taxi category not found')
+        }
         if (dto.lang === 'uz') {
             const createRule = await this.prisma.pricingRule.create({
                 data: {

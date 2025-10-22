@@ -5,9 +5,10 @@ import { UsersModule } from './users/users.module';
 import { SocketGateway } from './socket/socket.gateway';
 import { PriceModule } from './price/price.module';
 import { LocationModule } from './orders/locations/locations.module';
+import { PromocodeModule } from './promocode/promocode.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, OrdersModule, PriceModule,LocationModule],
+  imports: [AuthModule, UsersModule, OrdersModule, PriceModule,LocationModule, PromocodeModule],
   providers: [SocketGateway],
   exports: [SocketGateway],
 })

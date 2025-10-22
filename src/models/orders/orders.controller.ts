@@ -18,6 +18,7 @@ import {
     ApiProperty,
     ApiResponse,
     ApiTags,
+    PartialType,
 } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 import type { Request } from 'express';
@@ -47,6 +48,7 @@ class CreateOrderDto {
     @ApiProperty({ enum: ['cash', 'card'], example: 'card', required: false })
     payment_method?: 'cash' | 'card';
 }
+export class UpdateOrderDto extends PartialType(CreateOrderDto) { }
 
 class UpdateStatusDto {
     @ApiProperty({
@@ -61,6 +63,7 @@ class UpdateStatusDto {
     })
     status: OrderStatus;
 }
+
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -160,5 +163,14 @@ export class OrdersController {
         } catch (error) {
             throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @Patch(':id')
+    @ApiOperation({ summary: 'Update an existing order' })
+    @ApiParam({ name: 'id', description: 'Order ID' })
+    @ApiBody({ type: UpdateOrderDto })
+    @ApiResponse({ status: 200, description: 'Order updated successfully' })
+    async updateOrder(@Param('id') id: string, @Body() dto: UpdateOrderDto) {
+        return this.ordersService.updateOrder(id, dto);
     }
 }

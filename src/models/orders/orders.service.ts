@@ -1,8 +1,10 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/config/database/database.service';
 import { SocketGateway } from '../socket/socket.gateway';
 import { RedisGeoService } from './locations/redis-geo.service';
-import { Order, OrderStatus } from '@prisma/client';
+import { CreateOrderDto } from './dto/create.orders.dto';
+import { UpdateOrderDto } from './orders.controller';
 
 @Injectable()
 export class OrdersService {
@@ -31,7 +33,6 @@ export class OrdersService {
 
         // 1️⃣ Eng yaqin haydovchilarni topish
         const nearbyDrivers = await this.redisGeo.getNearbyDrivers(dto.start_lat, dto.start_lng, 5);
-        // if (!nearbyDrivers.length) throw new NotFoundException('No drivers available nearby');
 
         // 2️⃣ Narxni hisoblash (PricingRule)
         const rule = await this.prisma.pricingRule.findFirst({
@@ -43,14 +44,28 @@ export class OrdersService {
         const distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
         const estimatedTime = distanceKm * 2; // 2 daqiqa / km
         const basePrice = Number(rule.base_fare);
+
+        // 🚕 TaxiCategory narxini qo'shish
+        let categoryPricePerKm = 0;
+        if (dto.taxiCategoryId) {
+            const category = await this.prisma.taxiCategory.findUnique({
+                where: { id: dto.taxiCategoryId, is_active: true },
+            });
+            if (!category) throw new NotFoundException('Taxi category not found or inactive');
+            categoryPricePerKm = Number(category.price_per_km);
+        }
+
+        // Narxni hisoblash (asosiy narx + kategoriya narxi)
         const price =
             basePrice +
-            Number(rule.per_km) * distanceKm +
+            (Number(rule.per_km) + categoryPricePerKm) * distanceKm +
             Number(rule.per_min) * estimatedTime;
         let finalPrice = price * Number(rule.surge_multiplier);
 
         // 3️⃣ PromoCode tekshirish
         let promoApplied = false;
+        let appliedPromo: { code: string; discount_percent: number; discount_amount: number } | null = null;
+
         if (dto.promoCode) {
             const promo = await this.prisma.promoCode.findFirst({
                 where: {
@@ -60,9 +75,17 @@ export class OrdersService {
                     OR: [{ valid_to: null }, { valid_to: { gte: new Date() } }],
                 },
             });
+
             if (promo) {
-                finalPrice = finalPrice * (1 - promo.discount_percent / 100);
+                const discountPercent = promo.discount_percent;
+                const discountAmount = (finalPrice * discountPercent) / 100;
+                finalPrice = Math.max(0, finalPrice - discountAmount);
                 promoApplied = true;
+                appliedPromo = {
+                    code: promo.code,
+                    discount_percent: promo.discount_percent,
+                    discount_amount: discountAmount,
+                };
             }
         }
 
@@ -91,7 +114,7 @@ export class OrdersService {
             },
         });
 
-        // 6️⃣ Haydovchilarga real-time jo‘natish
+        // 6️⃣ Haydovchilarga real-time jo'natish
         for (const driver of nearbyDrivers) {
             this.socketGateway.emitToDriver(driver.driverId, 'order:request', {
                 order_id: order.id,
@@ -101,7 +124,7 @@ export class OrdersService {
             });
         }
 
-        return { order, drivers: nearbyDrivers, promoApplied };
+        return { order, drivers: nearbyDrivers, promoApplied, appliedPromo };
     }
 
     // 🟡 2. Haydovchi zakasni qabul qiladi
@@ -156,7 +179,7 @@ export class OrdersService {
             });
         }
 
-        // 🟢 Haydovchiga to‘lov (foizdan keyin)
+        // 🟢 Haydovchiga to'lov (foizdan keyin)
         const driverEarn =
             paymentMethod === 'cash'
                 ? Number(order.price) - commissionDriver
@@ -203,7 +226,7 @@ export class OrdersService {
         return R * c;
     }
 
-    // 🟢 4. Foydalanuvchining o‘z zakaslari
+    // 🟢 4. Foydalanuvchining o'z zakaslari
     async getMyOrders(userId: string) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
@@ -244,5 +267,122 @@ export class OrdersService {
         }
 
         return updated;
+    }
+
+    async updateOrder(orderId: string, dto: UpdateOrderDto) {
+        // 🔎 Orderni topamiz (payment bilan)
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: { payment: true },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+
+        // 🔒 faqat pending yoki accepted holatda yangilash mumkin
+        if (!['pending', 'accepted'].includes(order.status))
+            throw new BadRequestException('Only pending or accepted orders can be updated');
+
+        // ⚙️ Narx va masofani hisoblash uchun o'zgaruvchilar
+        let finalPrice = Number(order.price);
+        let distanceKm = Number(order.distance_km);
+        let estimatedTime = Number(order.duration_min);
+
+        // 📍 Agar manzil o'zgartirilsa — qayta hisoblaymiz
+        if (dto.start_lat && dto.start_lng && dto.end_lat && dto.end_lng) {
+            distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
+            estimatedTime = distanceKm * 2;
+
+            const rule = await this.prisma.pricingRule.findFirst({
+                where: { is_active: true },
+                orderBy: { updated_at: 'desc' },
+            });
+            if (!rule) throw new NotFoundException('No pricing rules found');
+
+            const basePrice = Number(rule.base_fare);
+
+            // 🚕 TaxiCategory narxini qo'shish
+            let categoryPricePerKm = 0;
+            const categoryId = dto.taxiCategoryId ?? order.taxiCategoryId;
+
+            if (categoryId) {
+                const category = await this.prisma.taxiCategory.findUnique({
+                    where: { id: categoryId, is_active: true },
+                });
+                if (!category) throw new NotFoundException('Taxi category not found or inactive');
+                categoryPricePerKm = Number(category.price_per_km);
+            }
+
+            const price =
+                basePrice +
+                (Number(rule.per_km) + categoryPricePerKm) * distanceKm +
+                Number(rule.per_min) * estimatedTime;
+            finalPrice = price * Number(rule.surge_multiplier);
+        }
+
+        // 💸 PromoCode tekshirish (agar yangi bo'lsa)
+        let promoApplied = false;
+        let appliedPromo: { code: string; discount_percent: number; discount_amount: number } | null = null;
+
+        if (dto.promoCode) {
+            const promo = await this.prisma.promoCode.findFirst({
+                where: {
+                    code: dto.promoCode,
+                    is_active: true,
+                    valid_from: { lte: new Date() },
+                    OR: [{ valid_to: null }, { valid_to: { gte: new Date() } }],
+                },
+            });
+
+            if (promo) {
+                const discountPercent = promo.discount_percent;
+                const discountAmount = (finalPrice * discountPercent) / 100;
+                finalPrice = Math.max(0, finalPrice - discountAmount);
+                promoApplied = true;
+                appliedPromo = {
+                    code: promo.code,
+                    discount_percent: promo.discount_percent,
+                    discount_amount: discountAmount,
+                };
+            }
+        }
+
+        // 🛠 Orderni yangilaymiz
+        const updatedOrder = await this.prisma.order.update({
+            where: { id: orderId },
+            data: {
+                start_lat: dto.start_lat ? new Prisma.Decimal(dto.start_lat) : order.start_lat,
+                start_lng: dto.start_lng ? new Prisma.Decimal(dto.start_lng) : order.start_lng,
+                end_lat: dto.end_lat ? new Prisma.Decimal(dto.end_lat) : order.end_lat,
+                end_lng: dto.end_lng ? new Prisma.Decimal(dto.end_lng) : order.end_lng,
+                taxiCategoryId: dto.taxiCategoryId ?? order.taxiCategoryId,
+                price: new Prisma.Decimal(finalPrice),
+                distance_km: new Prisma.Decimal(distanceKm),
+                duration_min: new Prisma.Decimal(estimatedTime),
+                updated_at: new Date(),
+            },
+        });
+
+        // 💰 Paymentni yangilaymiz (summa yoki to'lov turi o'zgarsa)
+        await this.prisma.payment.updateMany({
+            where: { order_id: orderId },
+            data: {
+                amount: new Prisma.Decimal(finalPrice),
+                method: dto.payment_method || order.payment?.method || 'cash',
+                status: 'pending',
+                paid_at: null,
+            },
+        });
+
+        // 🔔 Real-time update (agar haydovchi bor bo'lsa)
+        if (updatedOrder.driver_id) {
+            this.socketGateway.emitToDriver(updatedOrder.driver_id, 'order:updated', {
+                order_id: orderId,
+                new_price: finalPrice,
+                promo_applied: promoApplied,
+            });
+        }
+
+        this.logger.log(`♻️ Order ${orderId} updated successfully`);
+
+        return { updatedOrder, promoApplied, appliedPromo };
     }
 }

@@ -19,6 +19,7 @@ export class CategoryService {
                     name_uz: data.name,
                     icon_url: photoUrl,
                     is_active: data.is_active !== undefined ? data.is_active : true,
+                    price_per_km: data.price_per_km,
                 }
             })
             return {
@@ -33,6 +34,7 @@ export class CategoryService {
                     name_en: data.name,
                     icon_url: photoUrl,
                     is_active: data.is_active !== undefined ? data.is_active : true,
+                    price_per_km: data.price_per_km,
                 }
             })
             return {
@@ -47,6 +49,7 @@ export class CategoryService {
                     name_ru: data.name,
                     icon_url: photoUrl,
                     is_active: data.is_active !== undefined ? data.is_active : true,
+                    price_per_km: data.price_per_km,
                 }
             })
             return {
@@ -140,9 +143,9 @@ export class CategoryService {
 
     async getTaxiCategoryById(id: string) {
         console.log(id);
-        
+
         const category = await this.prisma.taxiCategory.findUnique({
-            where: { id:id }
+            where: { id: id }
         })
         if (!category) throw new ConflictException('this category not found')
         return {

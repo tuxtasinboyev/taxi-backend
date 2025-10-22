@@ -14,7 +14,7 @@ export function urlGenerator(config: ConfigService, param: string) {
         "docs"
   const host = config.get<string>("HOST")
   const port = config.get<string>("PORT")
-  console.log("generator url faylida",host,port);
+  // console.log("generator url faylida",host,port);
 
   const baseUrl = config.get<string>("APP_BASE_URL") || `http://${host}:${port}`
   const result = `${serverRot}/${param}`
