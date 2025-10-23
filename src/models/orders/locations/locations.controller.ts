@@ -7,8 +7,10 @@ import {
     Post,
     UseGuards,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
+import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { LocationService } from './locations.service';
 
 @ApiTags('Location Service') // 📘 Swaggerda bo‘lim nomi
@@ -19,13 +21,13 @@ export class LocationController {
     // 🛰️ Haydovchi joylashuvini saqlash
     @Post('save-driver-location')
     @UseGuards(GuardService)
+    @ApiBearerAuth()
     @HttpCode(200)
     @ApiOperation({ summary: 'Haydovchi locatsiyasini saqlash (har 2–5 soniyada)' })
     @ApiBody({
         schema: {
             type: 'object',
             properties: {
-                driver_id: { type: 'string', example: 'drv_123' },
                 order_id: { type: 'string', example: 'ord_456' },
                 lat: { type: 'number', example: 41.311081 },
                 lng: { type: 'number', example: 69.240562 },
@@ -53,16 +55,16 @@ export class LocationController {
     async saveDriverLocation(
         @Body()
         dto: {
-            driver_id: string;
             order_id: string;
             lat: number;
             lng: number;
             speed: number;
             bearing: number;
         },
+        @UserData() driver: JwtPayload
     ) {
         const location = await this.locationService.saveDriverLocation(
-            dto.driver_id,
+            driver.id,
             dto.order_id,
             dto.lat,
             dto.lng,
@@ -75,13 +77,13 @@ export class LocationController {
     // 👤 Yo‘lovchi joylashuvini saqlash
     @Post('save-passenger-location')
     @UseGuards(GuardService)
+    @ApiBearerAuth()
     @HttpCode(200)
     @ApiOperation({ summary: 'Yo‘lovchi locatsiyasini saqlash (har 10–30 soniyada)' })
     @ApiBody({
         schema: {
             type: 'object',
             properties: {
-                user_id: { type: 'string', example: 'usr_789' },
                 order_id: { type: 'string', example: 'ord_456' },
                 lat: { type: 'number', example: 41.322222 },
                 lng: { type: 'number', example: 69.255555 },
@@ -97,15 +99,15 @@ export class LocationController {
     async savePassengerLocation(
         @Body()
         dto: {
-            user_id: string;
             order_id: string;
             lat: number;
             lng: number;
             accuracy: number;
         },
+        @UserData() user: JwtPayload
     ) {
         const location = await this.locationService.savePassengerLocation(
-            dto.user_id,
+            user.id,
             dto.order_id,
             dto.lat,
             dto.lng,
@@ -116,7 +118,6 @@ export class LocationController {
 
     // 🗺️ Order bo‘yicha yo‘l tarixi
     @Get('route-history/:order_id')
-    @UseGuards(GuardService)
     @ApiOperation({ summary: 'Berilgan order uchun haydovchi va yo‘lovchi yo‘l tarixi' })
     @ApiParam({ name: 'order_id', example: 'ord_456' })
     @ApiResponse({

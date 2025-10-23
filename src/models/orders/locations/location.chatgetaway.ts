@@ -64,6 +64,29 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
         });
     }
 
+    
+    broadcastDriverLocation(data: { driverId: string; lat: number; lng: number; speed?: number; bearing?: number }) {
+        const payload: LocationData = {
+            type: 'driver',
+            id: data.driverId,
+            lat: data.lat,
+            lng: data.lng,
+            speed: data.speed,
+            bearing: data.bearing,
+            timestamp: new Date(),
+        };
+
+        // 1️⃣ Oxirgi locatsiyani cache’ga yozamiz
+        this.lastLocations.set(`driver:${data.driverId}`, payload);
+
+        // 2️⃣ Barcha clientlarga yuboramiz
+        this.server.emit('location:driver-updated', payload);
+
+        this.logger.debug(`📡 Broadcast driver ${data.driverId} location → ${data.lat}, ${data.lng}`);
+    }
+
+
+
     // Yo'lovchi ro'yxatdan o'tadi
     @SubscribeMessage('passenger:register')
     handlePassengerRegister(client: Socket, data: { userId: string; orderId: string }) {

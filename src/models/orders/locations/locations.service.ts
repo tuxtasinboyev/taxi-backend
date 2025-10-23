@@ -1,7 +1,9 @@
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import { DatabaseService } from 'src/config/database/database.service';
 import { LocationGateway } from './location.chatgetaway';
+import { RedisGeoService } from './redis-geo.service';
 
 @Injectable()
 export class LocationService {
@@ -11,32 +13,37 @@ export class LocationService {
     constructor(
         private prisma: DatabaseService,
         private locationGateway: LocationGateway,
-    ) {}
+        private redisGeo:RedisGeoService
+    ) { }
 
-    // Haydovchining locatsiyasini saqlash (batch - har 30 sekundda)
     async saveDriverLocation(
         driverId: string,
-        orderId: string ,
+        orderId: string | null, // 🟢 null bo‘lishi mumkin
         lat: number,
         lng: number,
         speed?: number,
         bearing?: number,
     ) {
         try {
-            const existsOrder =await this.prisma.order.findUnique({ where: { id: orderId } });
-            if(!existsOrder) {
-                this.logger.warn(`Order with ID ${orderId} not found for driver ${driverId}`);
-                return;
+            // 🟢 Haydovchini tekshirish
+            const existsDriver = await this.prisma.user.findUnique({ where: { id: driverId } });
+            if (!existsDriver || existsDriver.role !== UserRole.driver) {
+                throw new NotFoundException(`Driver with ID ${driverId} not found`);
             }
-            const existsDriver = await this.prisma.driver.findUnique({ where: { id: driverId } });
-            if(!existsDriver) {
-                this.logger.warn(`Driver with ID ${driverId} not found`);
-                return;
+
+            // 🟡 Agar order bo‘lsa, shundagina tekshiramiz
+            if (orderId) {
+                const existsOrder = await this.prisma.order.findUnique({ where: { id: orderId } });
+                if (!existsOrder) {
+                    throw new NotFoundException(`Order with ID ${orderId} not found for driver ${driverId}`);
+                }
             }
+
+            // ✅ 1. Driver joylashuvini DB ga yozish
             await this.prisma.driverLocation.create({
                 data: {
                     driver_id: driverId,
-                    order_id: orderId,
+                    order_id: orderId, // null bo‘lishi mumkin
                     lat: lat.toString(),
                     lng: lng.toString(),
                     speed: speed ? speed.toString() : null,
@@ -44,17 +51,30 @@ export class LocationService {
                 },
             });
 
+            // ✅ 2. Redis GEO ga yozish (har safar yangilab turadi)
+            await this.redisGeo.updateDriverLocation(driverId, lat, lng);
 
-            // Driver statusini update
+            // ✅ 3. Driver statusini yangilash
             await this.prisma.driver.update({
                 where: { id: driverId },
                 data: { last_seen_at: new Date() },
             });
 
-            return location;
+            // 🟢 4. Real-time update (agar kerak bo‘lsa)
+            this.locationGateway.broadcastDriverLocation({
+                driverId,
+                lat,
+                lng,
+                speed,
+                bearing,
+            });
+
+            this.logger.log(`📍 Driver ${driverId} location updated (Redis + DB)`);
         } catch (error) {
-            this.logger.error(`Error saving driver location: ${error.message}`);
+            this.logger.error(`❌ Error saving driver location: ${error.message}`);
+            throw error; // ✅ mavjud xatoni tashqariga uzatadi
         }
+
     }
 
     // Yo'lovchining locatsiyasini saqlash (batch - har 1 minutda)
@@ -67,15 +87,13 @@ export class LocationService {
     ) {
         try {
             const existsUser = await this.prisma.user.findUnique({ where: { id: userId } });
-            if(!existsUser) {
-                this.logger.warn(`User with ID ${userId} not found`);
-                return;
+            if (!existsUser) {
+                throw new NotFoundException(`User with ID ${userId} not found`);
             }
-            if(orderId) {
-                const existsOrder =await this.prisma.order.findUnique({ where: { id: orderId } });
-                if(!existsOrder) {
-                    this.logger.warn(`Order with ID ${orderId} not found for user ${userId}`);
-                    return;
+            if (orderId) {
+                const existsOrder = await this.prisma.order.findUnique({ where: { id: orderId } });
+                if (!existsOrder) {
+                    throw new NotFoundException(`Order with ID ${orderId} not found for user ${userId}`);
                 }
             }
             const location = await this.prisma.userLocation.create({
@@ -91,6 +109,7 @@ export class LocationService {
             return location;
         } catch (error) {
             this.logger.error(`Error saving passenger location: ${error.message}`);
+            throw error
         }
     }
 

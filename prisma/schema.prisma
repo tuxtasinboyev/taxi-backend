@@ -96,7 +96,7 @@ model TaxiCategory {
   name_ru    String?  @unique @db.VarChar(50)
   name_en    String?  @unique @db.VarChar(50)
   icon_url   String?
-  price_per_km Decimal  @db.Decimal(10, 2)
+  price      Decimal  @db.Decimal(10, 3)
   is_active  Boolean? @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

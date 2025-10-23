@@ -1,10 +1,10 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
     Get,
     Param,
-    ParseUUIDPipe,
     Post,
     Put,
     Query,
@@ -38,14 +38,14 @@ export class CategoryController {
                     type: 'string',
                     format: 'binary',
                 },
-                price_per_km: {
+                price: {
                     type: 'number',
                     format: 'decimal',
-                    example: 5.50,
-                    description: 'Price per kilometer (Decimal, e.g. 10.25)',
+                    example: 5.500,
+                    description: 'Price per kilometer (Decimal, e.g. 10.255)',
                 },
             },
-            required: ['name', 'language', 'icon', 'price_per_km'],
+            required: ['name', 'language', 'icon', 'price'],
         },
     })
 
@@ -60,7 +60,7 @@ export class CategoryController {
             data.is_active = data.is_active === 'true';
         }
 
-        if (!icon) throw new Error('Icon file is required');
+        if (!icon) throw new BadRequestException('Icon file is required');
         const iconUrl = icon.filename; // Yoki yuklash logikangizga qarab to'liq URL ham bo'lishi mumkin
         return this.categoryService.createTaxiCategory(data, iconUrl);
     }
@@ -95,6 +95,12 @@ export class CategoryController {
                 icon: {
                     type: 'string',
                     format: 'binary',
+                },
+                price: {
+                    type: 'number',
+                    format: 'decimal',
+                    example: 5.500,
+                    description: 'Price per kilometer (Decimal, e.g. 10.255)',
                 },
             },
         },

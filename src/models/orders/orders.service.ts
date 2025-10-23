@@ -1,9 +1,14 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    Logger,
+    NotFoundException,
+} from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/config/database/database.service';
 import { SocketGateway } from '../socket/socket.gateway';
 import { RedisGeoService } from './locations/redis-geo.service';
-import { CreateOrderDto } from './dto/create.orders.dto';
 import { UpdateOrderDto } from './orders.controller';
 
 @Injectable()
@@ -27,14 +32,14 @@ export class OrdersService {
         promoCode?: string;
         payment_method?: 'cash' | 'card';
     }) {
-        // 🧩 User mavjudligini tekshirish
+        // 🧩 Foydalanuvchini tekshirish
         const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
         if (!user) throw new NotFoundException('User not found');
 
-        // 1️⃣ Eng yaqin haydovchilarni topish
+        // 1️⃣ Eng yaqin haydovchilar
         const nearbyDrivers = await this.redisGeo.getNearbyDrivers(dto.start_lat, dto.start_lng, 5);
 
-        // 2️⃣ Narxni hisoblash (PricingRule)
+        // 2️⃣ Narx qoidasini olish
         const rule = await this.prisma.pricingRule.findFirst({
             where: { is_active: true },
             orderBy: { updated_at: 'desc' },
@@ -42,24 +47,26 @@ export class OrdersService {
         if (!rule) throw new NotFoundException('No pricing rules found');
 
         const distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
-        const estimatedTime = distanceKm * 2; // 2 daqiqa / km
+        const estimatedTime = distanceKm * 2; // taxminan 2 daqiqa / km
         const basePrice = Number(rule.base_fare);
 
-        // 🚕 TaxiCategory narxini qo'shish
-        let categoryPricePerKm = 0;
+        // 🚕 TaxiCategory narxi (umumiy)
+        let categoryPrice = 0;
         if (dto.taxiCategoryId) {
             const category = await this.prisma.taxiCategory.findUnique({
                 where: { id: dto.taxiCategoryId, is_active: true },
             });
             if (!category) throw new NotFoundException('Taxi category not found or inactive');
-            categoryPricePerKm = Number(category.price_per_km);
+            categoryPrice = Number(category.price) || 0;
         }
 
-        // Narxni hisoblash (asosiy narx + kategoriya narxi)
+        // 💰 Yangi narx formulasi
         const price =
             basePrice +
-            (Number(rule.per_km) + categoryPricePerKm) * distanceKm +
-            Number(rule.per_min) * estimatedTime;
+            Number(rule.per_km) * distanceKm +
+            Number(rule.per_min) * estimatedTime +
+            categoryPrice;
+
         let finalPrice = price * Number(rule.surge_multiplier);
 
         // 3️⃣ PromoCode tekshirish
@@ -104,7 +111,7 @@ export class OrdersService {
             },
         });
 
-        // 5️⃣ Payment (simulyatsiya)
+        // 5️⃣ Payment yaratish
         await this.prisma.payment.create({
             data: {
                 order_id: order.id,
@@ -114,7 +121,7 @@ export class OrdersService {
             },
         });
 
-        // 6️⃣ Haydovchilarga real-time jo'natish
+        // 6️⃣ Haydovchilarga real-time event
         for (const driver of nearbyDrivers) {
             this.socketGateway.emitToDriver(driver.driverId, 'order:request', {
                 order_id: order.id,
@@ -143,7 +150,7 @@ export class OrdersService {
             data: { driver_id: driverId, status: 'accepted' },
         });
 
-        // 🔄 boshqa haydovchilarga cancel event
+        // 🔄 boshqa haydovchilarga cancel
         this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
 
         return updatedOrder;
@@ -163,10 +170,9 @@ export class OrdersService {
         if (!passenger || !driver) throw new NotFoundException('Passenger or Driver not found');
 
         const paymentMethod = order.payment?.method || 'cash';
-        const commissionDriver = Number(order.price) * 0.05; // 5%
-        const commissionPassenger = Number(order.price) * 0.1; // 10%
+        const commissionDriver = Number(order.price) * 0.05;
+        const commissionPassenger = Number(order.price) * 0.1;
 
-        // 💳 Balansdan yechish (simulyatsiya)
         if (paymentMethod === 'cash') {
             await this.prisma.wallet.updateMany({
                 where: { user_id: driver.id },
@@ -179,7 +185,6 @@ export class OrdersService {
             });
         }
 
-        // 🟢 Haydovchiga to'lov (foizdan keyin)
         const driverEarn =
             paymentMethod === 'cash'
                 ? Number(order.price) - commissionDriver
@@ -190,19 +195,16 @@ export class OrdersService {
             data: { balance: { increment: driverEarn } },
         });
 
-        // 🔄 Orderni update
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status: 'completed', finished_at: new Date() },
         });
 
-        // 💰 Paymentni yangilash
         await this.prisma.payment.updateMany({
             where: { order_id: orderId },
             data: { status: 'success', paid_at: new Date() },
         });
 
-        // 🔔 Socket orqali haydovchiga xabar
         this.socketGateway.emitToDriver(order.driver_id, 'order:completed', {
             order_id: order.id,
             amount: driverEarn,
@@ -225,6 +227,51 @@ export class OrdersService {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
+    async updateOrderStatus(orderId: string, status: OrderStatus) {
+        // 1️⃣ Orderni topamiz
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
+
+        // 2️⃣ Status o‘zgarishlariga cheklov qo‘yish (optional)
+        const validStatuses: OrderStatus[] = [
+            'pending',
+            'accepted',
+            'on_the_way',
+            'completed',
+            'cancelled',
+        ];
+
+        if (!validStatuses.includes(status))
+            throw new BadRequestException(`Invalid status: ${status}`);
+
+        // 3️⃣ Orderni yangilaymiz
+        const updated = await this.prisma.order.update({
+            where: { id: orderId },
+            data: { status },
+        });
+
+        // 4️⃣ Socket orqali haydovchi va yo‘lovchiga yuboramiz
+        if (updated.driver_id) {
+            this.socketGateway.emitToDriver(updated.driver_id, 'order:status_updated', {
+                order_id: updated.id,
+                status: updated.status,
+            });
+        }
+
+        this.socketGateway.emitToUser(updated.user_id, 'order:status_updated', {
+            order_id: updated.id,
+            status: updated.status,
+        });
+
+        // 5️⃣ Agar status “completed” bo‘lsa — yakunlash logikasini ishlatish (optional)
+        if (status === 'completed') {
+            await this.completeOrder(orderId);
+        }
+
+        this.logger.log(`🚖 Order ${orderId} status changed to: ${status}`);
+
+        return updated;
+    }
 
     // 🟢 4. Foydalanuvchining o'z zakaslari
     async getMyOrders(userId: string) {
@@ -238,55 +285,21 @@ export class OrdersService {
         });
     }
 
-    // 🟡 5. Order statusini yangilash
-    async updateOrderStatus(orderId: string, status: string) {
-        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-        if (!order) throw new NotFoundException('Order not found');
-
-        const validStatuses: OrderStatus[] = [
-            'pending',
-            'accepted',
-            'on_the_way',
-            'completed',
-            'cancelled',
-        ];
-        if (!validStatuses.includes(status as OrderStatus)) {
-            throw new BadRequestException(`Invalid status: ${status}`);
-        }
-
-        const updated = await this.prisma.order.update({
-            where: { id: orderId },
-            data: { status: status as OrderStatus },
-        });
-
-        if (updated.driver_id) {
-            this.socketGateway.emitToDriver(updated.driver_id, 'order:status-updated', {
-                order_id: orderId,
-                status,
-            });
-        }
-
-        return updated;
-    }
-
+    // 🟡 5. Orderni yangilash
     async updateOrder(orderId: string, dto: UpdateOrderDto) {
-        // 🔎 Orderni topamiz (payment bilan)
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
             include: { payment: true },
         });
         if (!order) throw new NotFoundException('Order not found');
 
-        // 🔒 faqat pending yoki accepted holatda yangilash mumkin
         if (!['pending', 'accepted'].includes(order.status))
             throw new BadRequestException('Only pending or accepted orders can be updated');
 
-        // ⚙️ Narx va masofani hisoblash uchun o'zgaruvchilar
         let finalPrice = Number(order.price);
         let distanceKm = Number(order.distance_km);
         let estimatedTime = Number(order.duration_min);
 
-        // 📍 Agar manzil o'zgartirilsa — qayta hisoblaymiz
         if (dto.start_lat && dto.start_lng && dto.end_lat && dto.end_lng) {
             distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
             estimatedTime = distanceKm * 2;
@@ -299,8 +312,8 @@ export class OrdersService {
 
             const basePrice = Number(rule.base_fare);
 
-            // 🚕 TaxiCategory narxini qo'shish
-            let categoryPricePerKm = 0;
+            // 🚕 TaxiCategory narxi (umumiy)
+            let categoryPrice = 0;
             const categoryId = dto.taxiCategoryId ?? order.taxiCategoryId;
 
             if (categoryId) {
@@ -308,17 +321,19 @@ export class OrdersService {
                     where: { id: categoryId, is_active: true },
                 });
                 if (!category) throw new NotFoundException('Taxi category not found or inactive');
-                categoryPricePerKm = Number(category.price_per_km);
+                categoryPrice = Number(category.price) || 0;
             }
 
             const price =
                 basePrice +
-                (Number(rule.per_km) + categoryPricePerKm) * distanceKm +
-                Number(rule.per_min) * estimatedTime;
+                Number(rule.per_km) * distanceKm +
+                Number(rule.per_min) * estimatedTime +
+                categoryPrice;
+
             finalPrice = price * Number(rule.surge_multiplier);
         }
 
-        // 💸 PromoCode tekshirish (agar yangi bo'lsa)
+        // 💸 PromoCode tekshirish
         let promoApplied = false;
         let appliedPromo: { code: string; discount_percent: number; discount_amount: number } | null = null;
 
@@ -345,7 +360,6 @@ export class OrdersService {
             }
         }
 
-        // 🛠 Orderni yangilaymiz
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: {
@@ -361,7 +375,6 @@ export class OrdersService {
             },
         });
 
-        // 💰 Paymentni yangilaymiz (summa yoki to'lov turi o'zgarsa)
         await this.prisma.payment.updateMany({
             where: { order_id: orderId },
             data: {
@@ -372,7 +385,6 @@ export class OrdersService {
             },
         });
 
-        // 🔔 Real-time update (agar haydovchi bor bo'lsa)
         if (updatedOrder.driver_id) {
             this.socketGateway.emitToDriver(updatedOrder.driver_id, 'order:updated', {
                 order_id: orderId,
