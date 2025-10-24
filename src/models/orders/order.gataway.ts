@@ -18,6 +18,7 @@ import { SocketGateway } from '../socket/socket.gateway';
         ) {
             const order = await this.ordersService.acceptOrder(data.driverId, data.orderId);
 
+            
             // ✅ Haydovchiga tasdiq (faqat o‘ziga)
             client.emit('order:accepted', {
                 order_id: order.id,
