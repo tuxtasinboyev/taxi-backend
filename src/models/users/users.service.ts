@@ -378,52 +378,68 @@ export class UsersService {
         };
     }
 
-    async updateMe(userId: string, data: Partial<CreateUserForAdminDto>, photoUrl?: string) {
+    async updateMe(
+        userId: string,
+        data: Partial<CreateUserForAdminDto>,
+        photoUrl?: string,
+    ) {
         const existsUser = await this.prisma.user.findUnique({
-            where: {
-                id: userId
-            }
-        })
-        if (!existsUser) throw new NotFoundException('user not found')
-        if (data.email) {
+            where: { id: userId },
+        });
+
+        if (!existsUser) throw new NotFoundException('User not found');
+
+        // 🔹 Email tekshirish (agar o‘zgargan bo‘lsa)
+        if (data.email && data.email !== existsUser.email) {
             const existingUserByEmail = await this.prisma.user.findUnique({
-                where: { email: data.email }
+                where: { email: data.email },
             });
-            if (existingUserByEmail) throw new ConflictException('user already exist')
+            if (existingUserByEmail)
+                throw new ConflictException('Email already in use');
         }
-        if (data.phone) {
+
+        // 🔹 Telefon tekshirish (agar o‘zgargan bo‘lsa)
+        if (data.phone && data.phone !== existsUser.phone) {
             const existingUserByPhone = await this.prisma.user.findUnique({
-                where: { phone: data.phone }
+                where: { phone: data.phone },
             });
-            if (existingUserByPhone) throw new ConflictException('user already exist')
+            if (existingUserByPhone)
+                throw new ConflictException('Phone number already in use');
         }
 
-
+        // 🔹 Faqat berilgan maydonlarni olish
         const updateData: any = {};
 
-        if (data.name !== undefined) {
-            updateData.name_uz = data.name;
-            updateData.name_ru = data.name;
-            updateData.name_en = data.name;
+        // 🔹 Tilga qarab ismni yangilash
+        if (data.name) {
+            if (data.lang === 'uz') updateData.name_uz = data.name;
+            else if (data.lang === 'ru') updateData.name_ru = data.name;
+            else if (data.lang === 'en') updateData.name_en = data.name;
+            else {
+                // Agar til berilmagan bo‘lsa, hammasiga yozamiz
+                updateData.name_uz = data.name;
+                updateData.name_ru = data.name;
+                updateData.name_en = data.name;
+            }
         }
-        if (data.email !== undefined) updateData.email = data.email;
 
-        if (photoUrl) {
+        if (data.email) updateData.email = data.email;
+        if (data.phone) updateData.phone = data.phone;
+
+        if (photoUrl)
             updateData.profile_photo = urlGenerator(this.config, photoUrl);
-        }
 
-        if (data.password) {
+        if (data.password)
             updateData.password_hash = await bcrypt.hash(data.password, 10);
-        }
 
+        // 🔹 Yangilash
         const updatedUser = await this.prisma.user.update({
             where: { id: userId },
             data: updateData,
-            include: {
-                wallet: true
-            }
+            include: { wallet: true },
         });
 
+        // 🔹 Foydalanuvchiga toza javob
         const response = {
             id: updatedUser.id,
             name_uz: updatedUser.name_uz,
@@ -435,18 +451,19 @@ export class UsersService {
             role: updatedUser.role,
             created_at: updatedUser.created_at,
             updated_at: updatedUser.updated_at,
-            wallet: updatedUser.wallet ? {
-                balance: Number(updatedUser.wallet.balance),
-                currency: 'UZS'
-            } : null
+            wallet: updatedUser.wallet
+                ? { balance: Number(updatedUser.wallet.balance), currency: 'UZS' }
+                : null,
         };
 
         return {
             success: true,
             message: 'Profile updated successfully',
-            data: response
+            data: response,
         };
     }
+
+
     async deleteUser(userId: string) {
         const existsUser = await this.prisma.user.findUnique({
             where: {

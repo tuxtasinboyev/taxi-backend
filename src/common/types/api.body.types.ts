@@ -207,31 +207,43 @@ export const createUser = {
     required: ['name', 'email', 'phone', 'password', 'role', 'lang']
   }
 }
-export const putAbiBody={
-        description: 'Update user profile',
-        schema: {
-            type: 'object',
-            properties: {
-                name: {
-                    type: 'string',
-                    example: 'New Name',
-                    description: 'User name'
-                },
-                email: {
-                    type: 'string',
-                    example: 'new@example.com',
-                    description: 'User email'
-                },
-                password: {
-                    type: 'string',
-                    example: 'newpassword123',
-                    description: 'New password'
-                },
-                photo: {
-                    type: 'string',
-                    format: 'binary',
-                    description: 'Profile photo file (jpg, jpeg, png, webp)'
-                }
-            }
-        }
-    }
+export const putApiBody = {
+  description: 'Update user profile',
+  schema: {
+    type: 'object',
+    properties: {
+      name: {
+        type: 'string',
+        example: 'New Name',
+        description: 'User name (will be updated based on language)',
+      },
+      email: {
+        type: 'string',
+        example: 'new@example.com',
+        description: 'User email',
+      },
+      phone: {
+        type: 'string',
+        example: '+998901234567',
+        description: 'Phone number',
+      },
+      password: {
+        type: 'string',
+        example: 'newpassword123',
+        description: 'New password (optional)',
+      },
+      lang: {
+        type: 'string',
+        enum: ['uz', 'ru', 'en'],
+        example: 'uz',
+        description:
+          'Language — determines which field (name_uz, name_ru, name_en) is updated',
+      },
+      photo: {
+        type: 'string',
+        format: 'binary',
+        description: 'Profile photo file (jpg, jpeg, png, webp)',
+      },
+    },
+  },
+};

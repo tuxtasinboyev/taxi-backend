@@ -285,7 +285,6 @@ export class OrdersService {
         });
     }
 
-    // 🟡 5. Orderni yangilash
     async updateOrder(orderId: string, dto: UpdateOrderDto) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
@@ -300,6 +299,7 @@ export class OrdersService {
         let distanceKm = Number(order.distance_km);
         let estimatedTime = Number(order.duration_min);
 
+        // 🟡 1. Agar manzillar o‘zgartirilgan bo‘lsa
         if (dto.start_lat && dto.start_lng && dto.end_lat && dto.end_lng) {
             distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
             estimatedTime = distanceKm * 2;
@@ -311,8 +311,6 @@ export class OrdersService {
             if (!rule) throw new NotFoundException('No pricing rules found');
 
             const basePrice = Number(rule.base_fare);
-
-            // 🚕 TaxiCategory narxi (umumiy)
             let categoryPrice = 0;
             const categoryId = dto.taxiCategoryId ?? order.taxiCategoryId;
 
@@ -333,7 +331,7 @@ export class OrdersService {
             finalPrice = price * Number(rule.surge_multiplier);
         }
 
-        // 💸 PromoCode tekshirish
+        // 💸 2. PromoCode tekshirish
         let promoApplied = false;
         let appliedPromo: { code: string; discount_percent: number; discount_amount: number } | null = null;
 
@@ -360,19 +358,27 @@ export class OrdersService {
             }
         }
 
+        // 🟢 3. Faqat kiritilgan maydonlarni olish
+        const updateData: Record<string, any> = Object.fromEntries(
+            Object.entries(dto).filter(([_, v]) => v !== undefined)
+        );
+
+        // 🟢 4. Maxsus maydonlar
+        if (dto.start_lat) updateData.start_lat = new Prisma.Decimal(dto.start_lat);
+        if (dto.start_lng) updateData.start_lng = new Prisma.Decimal(dto.start_lng);
+        if (dto.end_lat) updateData.end_lat = new Prisma.Decimal(dto.end_lat);
+        if (dto.end_lng) updateData.end_lng = new Prisma.Decimal(dto.end_lng);
+        if (dto.taxiCategoryId) updateData.taxiCategoryId = dto.taxiCategoryId;
+
+        updateData.price = new Prisma.Decimal(finalPrice);
+        updateData.distance_km = new Prisma.Decimal(distanceKm);
+        updateData.duration_min = new Prisma.Decimal(estimatedTime);
+        updateData.updated_at = new Date();
+
+        // 🟢 5. Yangilash
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
-            data: {
-                start_lat: dto.start_lat ? new Prisma.Decimal(dto.start_lat) : order.start_lat,
-                start_lng: dto.start_lng ? new Prisma.Decimal(dto.start_lng) : order.start_lng,
-                end_lat: dto.end_lat ? new Prisma.Decimal(dto.end_lat) : order.end_lat,
-                end_lng: dto.end_lng ? new Prisma.Decimal(dto.end_lng) : order.end_lng,
-                taxiCategoryId: dto.taxiCategoryId ?? order.taxiCategoryId,
-                price: new Prisma.Decimal(finalPrice),
-                distance_km: new Prisma.Decimal(distanceKm),
-                duration_min: new Prisma.Decimal(estimatedTime),
-                updated_at: new Date(),
-            },
+            data: updateData,
         });
 
         await this.prisma.payment.updateMany({
@@ -397,4 +403,5 @@ export class OrdersService {
 
         return { updatedOrder, promoApplied, appliedPromo };
     }
+
 }

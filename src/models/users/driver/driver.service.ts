@@ -210,8 +210,14 @@ export class DriverService {
             data: safeUser,
         };
     }
-    async updatateDriver(id: string, data: Partial<CreateDriverDto>, photoUrl?: string) {
-        const driver = await this.prisma.user.findUnique({ where: { id, role: UserRole.driver } });
+    async updatateDriver(
+        id: string,
+        data: Partial<CreateDriverDto>,
+        photoUrl?: string
+    ) {
+        const driver = await this.prisma.user.findUnique({
+            where: { id, role: UserRole.driver },
+        });
 
         if (!driver) {
             return {
@@ -219,41 +225,35 @@ export class DriverService {
                 message: 'Driver not found',
             };
         }
-        const existsCategory = data.taxi_category_id ? await this.prisma.taxiCategory.findUnique({
 
-            where: { id: data.taxi_category_id },
-        }) : null;
-        if (data.taxi_category_id && !existsCategory) {
-            throw new ConflictException('this category not found');
+        if (data.taxi_category_id) {
+            const existsCategory = await this.prisma.taxiCategory.findUnique({
+                where: { id: data.taxi_category_id },
+            });
+            if (!existsCategory) {
+                throw new ConflictException('This category not found');
+            }
         }
 
         if (data.email && data.email !== driver.email) {
             const emailExists = await this.prisma.user.findUnique({
                 where: { email: data.email },
             });
-            if (emailExists) {
-                throw new ConflictException('Email already in use');
-            }
+            if (emailExists) throw new ConflictException('Email already in use');
         }
 
         if (data.phone && data.phone !== driver.phone) {
             const phoneExists = await this.prisma.user.findUnique({
                 where: { phone: data.phone },
             });
-            if (phoneExists) {
-                throw new ConflictException('Phone number already in use');
-            }
+            if (phoneExists) throw new ConflictException('Phone number already in use');
         }
 
-        let passwordHash: string | undefined;
-        if (data.password) {
-            passwordHash = await bcrypt.hash(data.password, 10);
-        }
+        const passwordHash = data.password
+            ? await bcrypt.hash(data.password, 10)
+            : undefined;
 
-        let photo
-        if (photoUrl) {
-            photo = urlGenerator(this.config, photoUrl);
-        }
+        const photo = photoUrl ? urlGenerator(this.config, photoUrl) : undefined;
 
         let nameField: string | undefined;
         let carModelField: string | undefined;
@@ -286,19 +286,26 @@ export class DriverService {
                 where: { id },
                 data: {
                     ...(nameField && data.name ? { [nameField]: data.name } : {}),
-                    phone: data.phone,
-                    email: data.email,
-                    profile_photo: photo,
+                    ...(data.phone ? { phone: data.phone } : {}),
+                    ...(data.email ? { email: data.email } : {}),
+                    ...(photo ? { profile_photo: photo } : {}),
                     ...(passwordHash ? { password_hash: passwordHash } : {}),
                 },
             });
+
             const updatedDriver = await tx.driver.update({
                 where: { id },
                 data: {
-                    ...(carModelField && data.car_model ? { [carModelField]: data.car_model } : {}),
-                    ...(carColorField && data.car_color ? { [carColorField]: data.car_color } : {}),
-                    car_number: data.car_number,
-                    taxiCategoryId: data.taxi_category_id,
+                    ...(carModelField && data.car_model
+                        ? { [carModelField]: data.car_model }
+                        : {}),
+                    ...(carColorField && data.car_color
+                        ? { [carColorField]: data.car_color }
+                        : {}),
+                    ...(data.car_number ? { car_number: data.car_number } : {}),
+                    ...(data.taxi_category_id
+                        ? { taxiCategoryId: data.taxi_category_id }
+                        : {}),
                 },
             });
 
@@ -316,6 +323,7 @@ export class DriverService {
             },
         };
     }
+
     async updateMe(id: string, data: Partial<CreateDriverDto>, photoUrl?: string) {
         const driver = await this.prisma.user.findUnique({ where: { id, role: UserRole.driver } });
 

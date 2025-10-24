@@ -36,28 +36,35 @@ export class PromocodeService {
         return data
     }
     async updatePromocode(id: string, data: Partial<CreatePromoCodeDto>) {
+        const existsPromocode = await this.prisma.promoCode.findUnique({
+            where: { id },
+        });
 
-        const existsPromocode = await this.prisma.promoCode.findUnique({ where: { id: id } })
-        if (!existsPromocode) throw new NotFoundException('this promocode not found')
+        if (!existsPromocode) throw new NotFoundException('This promocode not found');
 
-        if (data.code) {
-            const existsPromocode = await this.prisma.promoCode.findUnique({ where: { id: data.code } })
-            if (existsPromocode) throw new NotFoundException('this promocode already exists')
+        if (data.code && data.code !== existsPromocode.code) {
+            const existingCode = await this.prisma.promoCode.findUnique({
+                where: { code: data.code },
+            });
+            if (existingCode)
+                throw new ConflictException('This promocode already exists');
         }
-        const updated = await this.prisma.promoCode.update({
-            where: { id: id },
-            data: {
-                code: data.code,
-                discount_percent: data.discount_percent,
-                is_active: data.is_active,
-                updated_at: new Date(),
-                valid_from: data.valid_from,
-                valid_to: data.valid_to
-            }
-        })
-        return updated
 
+        const updateData = Object.fromEntries(
+            Object.entries(data).filter(([_, v]) => v !== undefined)
+        );
+
+        const updated = await this.prisma.promoCode.update({
+            where: { id },
+            data: {
+                ...updateData,
+                updated_at: new Date(),
+            },
+        });
+
+        return updated;
     }
+
     async deletePromocode(id: string) {
         const existsPromocode = await this.prisma.promoCode.findUnique({ where: { id: id } })
         if (!existsPromocode) throw new NotFoundException('this promocode not found')

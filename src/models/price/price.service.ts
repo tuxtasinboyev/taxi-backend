@@ -13,7 +13,7 @@ export class PriceService {
                 data: { is_active: false }
             })
         }
-        
+
         if (dto.taxiCategoryId) {
             const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({ where: { id: dto.taxiCategoryId } })
             if (!existsTaxiCategory) throw new NotFoundException('Taxi category not found')
@@ -96,29 +96,39 @@ export class PriceService {
     async updatePriceRule(id: string, dto: Partial<CreatePricingRuleDto>) {
         const existingRule = await this.prisma.pricingRule.findUnique({ where: { id } });
         if (!existingRule) throw new NotFoundException('Pricing rule not found');
+
+        // 🔹 Taxi category borligini tekshiramiz (agar yangisi berilgan bo‘lsa)
         if (dto.taxiCategoryId) {
-            const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({ where: { id: dto.taxiCategoryId } })
-            if (!existsTaxiCategory) throw new NotFoundException('Taxi category not found')
+            const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({
+                where: { id: dto.taxiCategoryId },
+            });
+            if (!existsTaxiCategory) throw new NotFoundException('Taxi category not found');
         }
+
+        const updateData: Record<string, any> = Object.fromEntries(
+            Object.entries(dto).filter(([_, v]) => v !== undefined)
+        );
+
+
+        if (dto.lang && dto.city) {
+            if (dto.lang === 'uz') updateData.city_uz = dto.city;
+            if (dto.lang === 'ru') updateData.city_ru = dto.city;
+            if (dto.lang === 'en') updateData.city_en = dto.city;
+        }
+
+        // Bu ikki fieldni har doim Date formatiga o‘tkazamiz, agar berilgan bo‘lsa
+        if (dto.valid_from) updateData.valid_from = new Date(dto.valid_from);
+        if (dto.valid_to) updateData.valid_to = new Date(dto.valid_to);
+
+        // 🔹 yangilaymiz
         const updatedRule = await this.prisma.pricingRule.update({
             where: { id },
-            data: {
-                city_uz: dto.lang === 'uz' ? dto.city : existingRule.city_uz,
-                city_ru: dto.lang === 'ru' ? dto.city : existingRule.city_ru,
-                city_en: dto.lang === 'en' ? dto.city : existingRule.city_en,
-                base_fare: dto.base_fare ?? existingRule.base_fare,
-                per_km: dto.per_km ?? existingRule.per_km,
-                per_min: dto.per_min ?? existingRule.per_min,
-                surge_multiplier: dto.surge_multiplier ?? existingRule.surge_multiplier,
-                currency: dto.currency ?? existingRule.currency,
-                is_active: dto.is_active ?? existingRule.is_active,
-                valid_from: dto.valid_from ? new Date(dto.valid_from) : existingRule.valid_from,
-                valid_to: dto.valid_to ? new Date(dto.valid_to) : existingRule.valid_to,
-                taxiCategoryId: dto.taxiCategoryId ?? existingRule.taxiCategoryId,
-            }
-        })
-        return updatedRule
+            data: updateData,
+        });
+
+        return updatedRule;
     }
+
     async deletePriceRule(id: string) {
         const existingRule = await this.prisma.pricingRule.findUnique({ where: { id } });
         if (!existingRule) throw new NotFoundException('Pricing rule not found');

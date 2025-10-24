@@ -100,7 +100,11 @@ export class CategoryService {
         return { data: category };
     }
 
-    async updateTaxiCategory(id: string, data: Partial<CreateTaxiCategoryDto>, iconUrl?: string) {
+    async updateTaxiCategory(
+        id: string,
+        data: Partial<CreateTaxiCategoryDto>,
+        iconUrl?: string
+    ) {
         const exists = await this.prisma.taxiCategory.findUnique({ where: { id } });
         if (!exists) throw new ConflictException('Category not found');
 
@@ -117,12 +121,14 @@ export class CategoryService {
                         ? 'name_ru'
                         : null;
 
-        let updateData: any = {
-            icon_url: photoUrl,
-            is_active: data.is_active ?? exists.is_active,
-            price: data.price ?? exists.price,
-        };
+        const updateData: any = {};
 
+        // faqat kiritilgan maydonlarni qo‘shamiz:
+        if (photoUrl && photoUrl !== exists.icon_url) updateData.icon_url = photoUrl;
+        if (data.is_active !== undefined) updateData.is_active = data.is_active;
+        if (data.price !== undefined) updateData.price = data.price;
+
+        // agar name kiritilgan bo‘lsa, shunda yozamiz
         if (fieldName && data.name) {
             updateData[fieldName] = data.name;
         }
@@ -134,6 +140,7 @@ export class CategoryService {
 
         return { data: updated };
     }
+
 
     async deleteTaxiCategory(id: string) {
         const exists = await this.prisma.taxiCategory.findUnique({ where: { id } });

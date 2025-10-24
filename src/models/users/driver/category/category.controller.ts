@@ -39,7 +39,7 @@ export class CategoryController {
                     format: 'binary',
                 },
                 price: {
-                    type: 'number',
+                    type: 'decimal',
                     format: 'decimal',
                     example: 5.500,
                     description: 'Price per kilometer (Decimal, e.g. 10.255)',

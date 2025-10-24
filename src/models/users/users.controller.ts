@@ -22,19 +22,19 @@ import {
     ApiResponse,
     ApiTags
 } from '@nestjs/swagger';
+import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
-import { createUser, putAbiBody } from 'src/common/types/api.body.types';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { createUser, putApiBody } from 'src/common/types/api.body.types';
 import { getAllUser, getMeResponse, putRessponse } from 'src/common/types/api.response';
 import { fileStorages } from 'src/common/types/upload_types';
 import { CreateUserForAdminDto } from './dto/user.dto';
 import { UsersService } from './users.service';
-import { Role } from 'src/common/decorators/role.decorator';
-import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-    constructor(private readonly usersService: UsersService) {}
+    constructor(private readonly usersService: UsersService) { }
 
     @Post()
     @ApiOperation({ summary: 'Create new user (Admin only)' })
@@ -119,7 +119,7 @@ export class UsersController {
     @Put('me')
     @ApiOperation({ summary: 'Update current user profile' })
     @ApiConsumes('multipart/form-data')
-    @ApiBody(putAbiBody)
+    @ApiBody(putApiBody)
     @ApiResponse(putRessponse)
     @ApiResponse({ status: 404, description: 'User not found' })
     @ApiResponse({ status: 409, description: 'User already exists' })
@@ -136,7 +136,7 @@ export class UsersController {
         return this.usersService.updateMe(userId, data);
     }
 
-    @UseGuards(GuardService,RoleGuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @ApiBearerAuth()
     @Role('admin')
     @Delete(':id')

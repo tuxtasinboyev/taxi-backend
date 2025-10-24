@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Decimal } from '@prisma/client/runtime/library';
 import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { Language } from 'src/utils/helper';
 
@@ -30,5 +31,5 @@ export class CreateTaxiCategoryDto {
         example: 2.500,
         description: 'category narx',
     })
-    price: number;
+    price: Decimal;
 }
