@@ -212,7 +212,7 @@ export class ChatService {
             },
             orderBy: { created_at: 'desc' },
             skip,
-            take: limit,
+            take: Number(limit),
         });
 
         const total = await this.prisma.chatMessage.count({ where: { chat_id } });
@@ -272,7 +272,7 @@ export class ChatService {
             },
             orderBy: { updated_at: 'desc' },
             skip,
-            take: limit,
+            take: Number(limit),
         });
 
         const total = await this.prisma.chat.count({
