@@ -68,14 +68,12 @@ export class DriverController {
         @Query('page') page?: string,
         @Query('limit') limit?: string,
         @Query('search') search?: string,
-        @Query('curdNumber') curdNumber?: number,
         @Query('language') language?: Language,
     ) {
         return this.driverService.getAllDriver({
             page,
             limit,
             search,
-            curdNumber,
             language,
         });
     }

@@ -102,7 +102,6 @@ export class DriverService {
         page,
         limit,
         search,
-        curdNumber,
         language,
     }: {
         page?: string;
@@ -161,7 +160,6 @@ export class DriverService {
                     totalPages,
                     currentPage: pageNumber,
                     itemsPerPage: limitNumber,
-                    curdNumber: curdNumber || 0,
                 },
             },
         };
