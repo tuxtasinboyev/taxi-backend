@@ -144,7 +144,52 @@ export class LocationService {
 
         return { driverRoute, passengerRoute };
     }
+    async getAllDriverLocations() {
+        const drivers = await this.prisma.driverLocation.findMany({
+            orderBy: { timestamp: 'desc' },
+            include: { driver: true },
+        });
+        return drivers.map(d => ({
+            driverId: d.driver_id,
+            lat: d.lat,
+            lng: d.lng,
+            speed: d.speed,
+            bearing: d.bearing,
+            timestamp: d.timestamp,
+        }));
+    }
 
+    // Hamma yo'lovchilar locatsiyasi
+    async getAllPassengerLocations() {
+        const users = await this.prisma.userLocation.findMany({
+            orderBy: { timestamp: 'desc' },
+            include: { user: true },
+        });
+        return users.map(u => ({
+            userId: u.user_id,
+            lat: u.lat,
+            lng: u.lng,
+            accuracy: u.accuracy,
+            timestamp: u.timestamp,
+        }));
+    }
+
+    // Admin uchun hamma locatsiyalar + real-time socket
+    async getAllLocations() {
+        const [drivers, passengers] = await Promise.all([
+            this.getAllDriverLocations(),
+            this.getAllPassengerLocations(),
+        ]);
+
+        const allLocations = { drivers, passengers };
+
+        // 🔔 Socket orqali barcha clientlarga yuborish
+        this.locationGateway.broadcastAllLocations(allLocations);
+
+        return allLocations;
+    }
+
+    
     // Eski locatsiyalarni o'chirish (7 kundan keyin)
     async cleanupOldLocations(daysOld: number = 7) {
         const cutoffDate = new Date();

@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/auth.decorators';
+import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { getMeResponseDriver, putMeResponseDriver } from 'src/common/types/api.response';
 import { fileStorages } from 'src/common/types/upload_types';
@@ -26,9 +27,11 @@ import { CreateDriverDto } from './dto/create.driver.dto';
 @Controller('drivers')
 export class DriverController {
     constructor(private readonly driverService: DriverService) { }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Post()
-    @ApiOperation({ summary: 'Create new driver' })
+    @ApiOperation({ summary: 'Create new driver (admin)' })
     @ApiConsumes('multipart/form-data')
     @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
     @ApiBody({
@@ -57,9 +60,11 @@ export class DriverController {
         const photoUrl = file?.filename;
         return this.driverService.createDriver(data, photoUrl);
     }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Get()
-    @ApiOperation({ summary: 'Get all drivers (with pagination and search)' })
+    @ApiOperation({ summary: 'Get all drivers (with pagination and search) (admin)' })
     @ApiQuery({ name: 'page', required: false, example: '1' })
     @ApiQuery({ name: 'limit', required: false, example: '10' })
     @ApiQuery({ name: 'search', required: false, example: 'Azizbek' })
@@ -77,9 +82,11 @@ export class DriverController {
             language,
         });
     }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Get(':id')
-    @ApiOperation({ summary: 'Get driver by ID' })
+    @ApiOperation({ summary: 'Get driver by ID (admin)' })
     @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
     async getDriverById(@Param('id') id: string) {
         return this.driverService.getDriverById(id);
@@ -94,9 +101,11 @@ export class DriverController {
     async getMe(@UserData() user: JwtPayload) {
         return this.driverService.getMe(user.id);
     }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Patch(':id')
-    @ApiOperation({ summary: 'Update existing driver' })
+    @ApiOperation({ summary: 'Update existing driver (admin)' })
     @ApiConsumes('multipart/form-data')
     @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
     @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
@@ -160,9 +169,11 @@ export class DriverController {
         return this.driverService.updateMe(user.id, data, photoUrl);
     }
 
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Delete(':id')
-    @ApiOperation({ summary: 'Delete driver by ID' })
+    @ApiOperation({ summary: 'Delete driver by ID (admin)' })
     @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
     async deleteDriver(@Param('id') id: string) {
         return this.driverService.deleteDriver(id);

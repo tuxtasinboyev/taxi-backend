@@ -150,7 +150,7 @@ export class DriverService {
         const totalPages = Math.ceil(totalCount / limitNumber);
 
         const safeDrivers = drivers.map(({ password_hash, ...user }) => user);
-        return {
+        return {    
             success: true,
             message: 'Drivers retrieved successfully',
             data: {

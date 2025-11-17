@@ -9,10 +9,13 @@ import {
     Put,
     Query,
     UploadedFile,
+    UseGuards,
     UseInterceptors
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Role } from 'src/common/decorators/role.decorator';
+import { GuardService } from 'src/common/guard/guard.service';
 import { fileStorages } from 'src/common/types/upload_types';
 import { Language } from 'src/utils/helper';
 import { CategoryService } from './category.service';
@@ -22,9 +25,11 @@ import { CreateTaxiCategoryDto } from './dto/create.driver.dto';
 @Controller('taxi-categories')
 export class CategoryController {
     constructor(private readonly categoryService: CategoryService) { }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Post()
-    @ApiOperation({ summary: 'Create a new taxi category' })
+    @ApiOperation({ summary: 'Create a new taxi category (admin)' })
     @ApiConsumes('multipart/form-data')
     @ApiBody({
         description: 'Create Taxi Category',
@@ -80,9 +85,11 @@ export class CategoryController {
     async getTaxiCategoryById(@Param('id') id: string) {
         return this.categoryService.getTaxiCategoryById(id);
     }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Put(':id')
-    @ApiOperation({ summary: 'Update taxi category' })
+    @ApiOperation({ summary: 'Update taxi category (admin)' })
     @ApiConsumes('multipart/form-data')
     @ApiBody({
         description: 'Update Taxi Category',
@@ -119,8 +126,11 @@ export class CategoryController {
         return this.categoryService.updateTaxiCategory(id, data, iconUrl);
     }
 
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Delete(':id')
-    @ApiOperation({ summary: 'Delete taxi category' })
+    @ApiOperation({ summary: 'Delete taxi category (admin)' })
     @ApiParam({ name: 'id', description: 'Category UUID' })
     @ApiResponse({ status: 200, description: 'Category deleted' })
     async deleteTaxiCategory(@Param('id') id: string) {

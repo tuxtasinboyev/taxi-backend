@@ -35,7 +35,9 @@ import { UsersService } from './users.service';
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Post()
     @ApiOperation({ summary: 'Create new user (Admin only)' })
     @ApiConsumes('multipart/form-data')
@@ -60,7 +62,9 @@ export class UsersController {
         const userId = req.user.id;
         return this.usersService.Getme(userId);
     }
-
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Get()
     @ApiOperation({ summary: 'Get all users with pagination and filtering' })
     @ApiQuery({ name: 'page', required: false, type: Number, example: 1, description: 'Page number' })

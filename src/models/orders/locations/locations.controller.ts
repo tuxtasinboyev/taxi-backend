@@ -12,6 +12,7 @@ import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
 import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { LocationService } from './locations.service';
+import { Role } from 'src/common/decorators/role.decorator';
 
 @ApiTags('Location Service') // 📘 Swaggerda bo‘lim nomi
 @Controller('api/location')
@@ -137,5 +138,50 @@ export class LocationController {
     async getRouteHistory(@Param('order_id') orderId: string) {
         const route = await this.locationService.getOrderRoute(orderId);
         return route;
+    }
+
+    @UseGuards(GuardService)
+    @Role('admin')
+    @ApiBearerAuth()
+    @Get('all-locations')
+    @ApiOperation({ summary: 'Get all driver and passenger locations' })
+    @ApiResponse({
+        status: 200,
+        description: 'Successfully retrieved all locations',
+        schema: {
+            example: {
+                success: true,
+                message: 'All locations retrieved successfully',
+                data: {
+                    drivers: [
+                        {
+                            driverId: 'driver-uuid',
+                            lat: 41.311081,
+                            lng: 69.240562,
+                            speed: 50,
+                            bearing: 120,
+                            timestamp: '2025-11-17T12:00:00.000Z',
+                        },
+                    ],
+                    passengers: [
+                        {
+                            userId: 'user-uuid',
+                            lat: 41.311081,
+                            lng: 69.240562,
+                            accuracy: 5,
+                            timestamp: '2025-11-17T12:00:00.000Z',
+                        },
+                    ],
+                },
+            },
+        },
+    })
+    async getAllLocations() {
+        const locations = await this.locationService.getAllLocations();
+        return {
+            success: true,
+            message: 'All locations retrieved successfully',
+            data: locations,
+        };
     }
 }

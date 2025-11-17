@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/config/database/database.service';
+import { Language } from 'src/utils/helper';
 import { SocketGateway } from '../socket/socket.gateway';
 import { RedisGeoService } from './locations/redis-geo.service';
 import { UpdateOrderDto } from './orders.controller';
@@ -403,5 +404,308 @@ export class OrdersService {
 
         return { updatedOrder, promoApplied, appliedPromo };
     }
+    async getAllOrders(
+        page: number = 1,
+        limit: number = 10,
+        language: Language,
+        search?: string,
+        driver_id?: string,
+        user_id?: string,
+        price_min?: number,
+        price_max?: number,
+        status?: OrderStatus
+    ) {
+        const whereClause: Prisma.OrderWhereInput = {};
 
+        if (search) {
+            const nameField = language === 'uz' ? 'name_uz' :
+                language === 'ru' ? 'name_ru' :
+                    language === 'en' ? 'name_en' : 'name_uz';
+
+            whereClause.OR = [
+                {
+                    user: {
+                        [nameField]: { contains: search, mode: 'insensitive' },
+                    },
+                },
+                {
+                    driver: {
+                        user: {
+                            [nameField]: { contains: search, mode: 'insensitive' },
+                        },
+                    },
+                },
+            ];
+        }
+
+
+        if (driver_id) {
+            const existsDriver = await this.prisma.user.findUnique({ where: { id: driver_id } });
+            if (!existsDriver) {
+                throw new NotFoundException('Driver not found');
+            }
+            whereClause.driver_id = driver_id;
+        }
+        if (user_id) {
+            const existsUser = await this.prisma.user.findUnique({ where: { id: user_id } });
+            if (!existsUser) {
+                throw new NotFoundException('User not found');
+            }
+            whereClause.user_id = user_id;
+        }
+
+        if (price_min !== undefined || price_max !== undefined) {
+            whereClause.price = {};
+            if (price_min !== undefined) whereClause.price.gte = new Prisma.Decimal(price_min);
+            if (price_max !== undefined) whereClause.price.lte = new Prisma.Decimal(price_max);
+        }
+
+        if (status) whereClause.status = status;
+
+        const totalItems = await this.prisma.order.count({ where: whereClause });
+
+        const pageNumber = Math.max(page, 1);
+        const limitNumber = Math.min(Math.max(limit, 1), 100);
+        const offset = (pageNumber - 1) * limitNumber;
+        const totalPages = Math.ceil(totalItems / limitNumber);
+
+        const orders = await this.prisma.order.findMany({
+            where: whereClause,
+            skip: offset,
+            take: limitNumber,
+            orderBy: { created_at: 'desc' },
+            include: {
+                user: true,
+                driver: {
+                    include: { user: true },
+                },
+                TaxiCategory: true,
+                payment: true,
+                fare: true,
+                reviews: { include: { from: true, to: true } },
+                driverLocations: true,
+                UserLocation: true,
+                chats: {
+                    include: {
+                        participants: true,
+                        messages: true
+                    }
+                }
+            }
+        });
+
+        const mapped = orders.map(order => {
+            const lang = language;
+
+            const userName =
+                lang === 'uz' ? order.user.name_uz :
+                    lang === 'ru' ? order.user.name_ru :
+                        lang === 'en' ? order.user.name_en :
+                            order.user.name_uz;
+
+            let driverName: string | null = null;
+            let carModel: string | null = null;
+            let carColor: string | null = null;
+
+            if (order.driver) {
+                driverName =
+                    lang === 'uz' ? order.driver.user.name_uz :
+                        lang === 'ru' ? order.driver.user.name_ru :
+                            lang === 'en' ? order.driver.user.name_en :
+                                order.driver.user.name_uz;
+
+                carModel =
+                    lang === 'uz' ? order.driver.car_model_uz :
+                        lang === 'ru' ? order.driver.car_model_ru :
+                            lang === 'en' ? order.driver.car_model_en :
+                                order.driver.car_model_uz;
+
+                carColor =
+                    lang === 'uz' ? order.driver.car_color_uz :
+                        lang === 'ru' ? order.driver.car_color_ru :
+                            lang === 'en' ? order.driver.car_color_en :
+                                order.driver.car_color_uz;
+            }
+
+            let categoryName: string | null = null;
+            if (order.TaxiCategory) {
+                categoryName =
+                    lang === 'uz' ? order.TaxiCategory.name_uz :
+                        lang === 'ru' ? order.TaxiCategory.name_ru :
+                            lang === 'en' ? order.TaxiCategory.name_en :
+                                order.TaxiCategory.name_uz;
+            }
+
+
+            const reviews = order.reviews.map(r => {
+                const comment =
+                    lang === 'uz' ? r.comment_uz :
+                        lang === 'ru' ? r.comment_ru :
+                            lang === 'en' ? r.comment_en :
+                                r.comment_uz;
+
+                return {
+                    ...r,
+                    comment,
+                    from_name:
+                        lang === 'uz' ? r.from.name_uz :
+                            lang === 'ru' ? r.from.name_ru :
+                                lang === 'en' ? r.from.name_en :
+                                    r.from.name_uz,
+                    to_name:
+                        lang === 'uz' ? r.to.name_uz :
+                            lang === 'ru' ? r.to.name_ru :
+                                lang === 'en' ? r.to.name_en :
+                                    r.to.name_uz
+                };
+            });
+
+            return {
+                ...order,
+                user: {
+                    ...order.user,
+                    name: userName,
+                },
+                driver: order.driver
+                    ? {
+                        ...order.driver,
+                        user: {
+                            ...order.driver.user,
+                            name: driverName,
+                        },
+                        car_model: carModel,
+                        car_color: carColor,
+                    }
+                    : null,
+                TaxiCategory: order.TaxiCategory
+                    ? {
+                        ...order.TaxiCategory,
+                        name: categoryName,
+                    }
+                    : null,
+                reviews,
+            };
+        });
+
+        return {
+            success: true,
+            message: "Orders retrieved successfully",
+            data: mapped,
+            pagination: {
+                totalItems,
+                totalPages,
+                currentPage: pageNumber,
+                itemsPerPage: limitNumber,
+            },
+        };
+    }
+    async getOrderById(orderId: string, language: Language) {
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                user: true,
+                driver: { include: { user: true } },
+                TaxiCategory: true,
+                payment: true,
+                fare: true,
+                reviews: { include: { from: true, to: true } },
+                driverLocations: true,
+                UserLocation: true,
+                chats: { include: { participants: true, messages: true } },
+            },
+        });
+
+        if (!order) {
+            return { success: false, message: 'Order not found', data: null };
+        }
+
+        const lang = language;
+
+        // User
+        const userName =
+            lang === 'uz' ? order.user.name_uz :
+                lang === 'ru' ? order.user.name_ru :
+                    lang === 'en' ? order.user.name_en :
+                        order.user.name_uz;
+
+        // Driver
+        let driverName: string | null = null;
+        let carModel: string | null = null;
+        let carColor: string | null = null;
+
+        if (order.driver) {
+            driverName =
+                lang === 'uz' ? order.driver.user.name_uz :
+                    lang === 'ru' ? order.driver.user.name_ru :
+                        lang === 'en' ? order.driver.user.name_en :
+                            order.driver.user.name_uz;
+
+            carModel =
+                lang === 'uz' ? order.driver.car_model_uz :
+                    lang === 'ru' ? order.driver.car_model_ru :
+                        lang === 'en' ? order.driver.car_model_en :
+                            order.driver.car_model_uz;
+
+            carColor =
+                lang === 'uz' ? order.driver.car_color_uz :
+                    lang === 'ru' ? order.driver.car_color_ru :
+                        lang === 'en' ? order.driver.car_color_en :
+                            order.driver.car_color_uz;
+        }
+
+        // TaxiCategory
+        let categoryName: string | null = null;
+        if (order.TaxiCategory) {
+            categoryName =
+                lang === 'uz' ? order.TaxiCategory.name_uz :
+                    lang === 'ru' ? order.TaxiCategory.name_ru :
+                        lang === 'en' ? order.TaxiCategory.name_en :
+                            order.TaxiCategory.name_uz;
+        }
+
+        // Reviews
+        const reviews = order.reviews.map(r => {
+            const comment =
+                lang === 'uz' ? r.comment_uz :
+                    lang === 'ru' ? r.comment_ru :
+                        lang === 'en' ? r.comment_en :
+                            r.comment_uz;
+
+            return {
+                ...r,
+                comment,
+                from_name:
+                    lang === 'uz' ? r.from.name_uz :
+                        lang === 'ru' ? r.from.name_ru :
+                            lang === 'en' ? r.from.name_en :
+                                r.from.name_uz,
+                to_name:
+                    lang === 'uz' ? r.to.name_uz :
+                        lang === 'ru' ? r.to.name_ru :
+                            lang === 'en' ? r.to.name_en :
+                                r.to.name_uz
+            };
+        });
+
+        return {
+            success: true,
+            message: 'Order retrieved successfully',
+            data: {
+                ...order,
+                user: { ...order.user, name: userName },
+                driver: order.driver
+                    ? {
+                        ...order.driver,
+                        user: { ...order.driver.user, name: driverName },
+                        car_model: carModel,
+                        car_color: carColor,
+                    }
+                    : null,
+                TaxiCategory: order.TaxiCategory
+                    ? { ...order.TaxiCategory, name: categoryName }
+                    : null,
+                reviews,
+            },
+        };
+    }
 }

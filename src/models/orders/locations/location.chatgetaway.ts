@@ -181,4 +181,8 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
         const nearby = await this.redisGeoService.getNearbyDrivers(data.lat, data.lng, data.radiusKm || 3);
         client.emit('location:nearby-drivers', nearby);
     }
+    
+    broadcastAllLocations(locations: any) {
+        this.server.emit('locations-update', locations);
+    }
 }
