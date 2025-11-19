@@ -692,8 +692,8 @@ export class OrdersService {
                                 lang === 'en' ? r.to.name_en :
                                     r.to.name_uz
                         : null,
-            };
-        });
+            };  
+            });
 
         return {
             success: true,
