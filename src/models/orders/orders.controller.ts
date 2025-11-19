@@ -29,6 +29,7 @@ import { GuardService } from 'src/common/guard/guard.service';
 import { Language } from 'src/utils/helper';
 import { OrdersService } from './orders.service';
 import { Role } from 'src/common/decorators/role.decorator';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 // 🟢 DTO’lar
 class CreateOrderDto {
@@ -119,7 +120,7 @@ export class OrdersController {
         }
     }
 
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @Get('get-all-orders')
     @ApiOperation({ summary: 'Barcha zakaslarni olish (admin uchun)' })
@@ -166,7 +167,7 @@ export class OrdersController {
         );
     }
 
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @Get(':id')
     @ApiOperation({ summary: 'id buyicha zakaslarni olish (admin uchun)' })

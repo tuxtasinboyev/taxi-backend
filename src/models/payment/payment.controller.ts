@@ -17,12 +17,13 @@ import { GuardService } from 'src/common/guard/guard.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { Role } from 'src/common/decorators/role.decorator';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Payments')
 @Controller('payments')
 export class PaymentController {
     constructor(private readonly paymentService: PaymentService) { }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService,RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Post()
@@ -33,7 +34,7 @@ export class PaymentController {
     async createPayment(@Body() body: CreatePaymentDto) {
         return this.paymentService.createPayment(body);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get()
@@ -78,7 +79,7 @@ export class PaymentController {
     ) {
         return this.paymentService.getMyPaymentById(user.id, payment_id, language);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Put(':id')
@@ -91,7 +92,7 @@ export class PaymentController {
         return this.paymentService.updatePayment(id, body);
     }
 
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Delete(':id')
@@ -102,9 +103,10 @@ export class PaymentController {
     async deletePayment(@Param('id') id: string) {
         return this.paymentService.deletePayment(id);
     }
-
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
     @Put('active/:id')
-    @ApiOperation({ summary: 'Deactivate payment (set active=false)' })
+    @ApiOperation({ summary: 'Deactivate payment (set active=false) for (admin)' })
     @ApiParam({ name: 'id', type: String })
     @ApiResponse({ status: 200, description: 'Payment deactivated successfully' })
     @ApiResponse({ status: 404, description: 'Payment not found' })

@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/config/database/database.service';
 import { CreatePromoCodeDto } from './dto/create.promocode.dto';
+import { UpdatePromoCodeDto } from './dto/update.promocode';
 
 @Injectable()
 export class PromocodeService {
@@ -35,7 +36,7 @@ export class PromocodeService {
         const data = await this.prisma.promoCode.findUnique({ where: { id: id } })
         return data
     }
-    async updatePromocode(id: string, data: Partial<CreatePromoCodeDto>) {
+    async updatePromocode(id: string, data: UpdatePromoCodeDto) {
         const existsPromocode = await this.prisma.promoCode.findUnique({
             where: { id },
         });

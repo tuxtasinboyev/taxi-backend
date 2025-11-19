@@ -26,6 +26,8 @@ import {
 } from './dto/chat.dto';
 import { GuardService } from 'src/common/guard/guard.service';
 import { Language } from 'src/utils/helper';
+import { UserData } from 'src/common/decorators/auth.decorators';
+import type { JwtPayload } from 'src/config/jwt/jwt.service';
 
 @ApiTags('Chat')
 @ApiBearerAuth()
@@ -73,8 +75,8 @@ export class ChatController {
     @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Order topilmadi' })
     @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Ruxsat yo\'q' })
     @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Driver hali tayinlanmagan' })
-    async createChat(@Body() createChatDto: CreateChatDto, @Request() req) {
-        return this.chatService.getOrCreateChatForOrder(createChatDto, req.user.id);
+    async createChat(@Body() createChatDto: CreateChatDto, @UserData() req:JwtPayload) {
+        return this.chatService.getOrCreateChatForOrder(createChatDto, req.id);
     }
 
     @Post('message/send')
@@ -104,8 +106,8 @@ export class ChatController {
     })
     @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Chat topilmadi' })
     @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Ruxsat yo\'q' })
-    async sendMessage(@Body() sendMessageDto: SendMessageDto, @Request() req) {
-        return this.chatService.sendMessage(sendMessageDto, req.user.id);
+    async sendMessage(@Body() sendMessageDto: SendMessageDto, @UserData() req: JwtPayload) {
+        return this.chatService.sendMessage(sendMessageDto, req.id);
     }
 
     @Get('messages')
@@ -145,8 +147,8 @@ export class ChatController {
     })
     @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Chat topilmadi' })
     @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Ruxsat yo\'q' })
-    async getChatMessages(@Query() getChatMessagesDto: GetChatMessagesDto, @Request() req) {
-        return this.chatService.getChatMessages(getChatMessagesDto, req.user.id);
+    async getChatMessages(@Query() getChatMessagesDto: GetChatMessagesDto, @UserData() req: JwtPayload) {
+        return this.chatService.getChatMessages(getChatMessagesDto, req.id);
     }
 
     @Get('list')
@@ -200,8 +202,8 @@ export class ChatController {
             },
         },
     })
-    async getUserChats(@Query() getUserChatsDto: GetUserChatsDto, @Request() req) {
-        return this.chatService.getUserChats(getUserChatsDto, req.user.id);
+    async getUserChats(@Query() getUserChatsDto: GetUserChatsDto, @UserData() req: JwtPayload) {
+        return this.chatService.getUserChats(getUserChatsDto, req.id);
     }
 
     @Get(':chatId')
@@ -226,8 +228,8 @@ export class ChatController {
     async getChat(
         @Param('chatId') chatId: string,
         @Query('language') language: Language,
-        @Request() req,
+        @UserData() req: JwtPayload
     ) {
-        return this.chatService.getChat(chatId, req.user.id, language);
+        return this.chatService.getChat(chatId, req.id, language);
     }
 }

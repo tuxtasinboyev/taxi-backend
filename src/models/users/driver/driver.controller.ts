@@ -22,12 +22,13 @@ import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { Language } from 'src/utils/helper';
 import { DriverService } from './driver.service';
 import { CreateDriverDto } from './dto/create.driver.dto';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Drivers')
 @Controller('drivers')
 export class DriverController {
     constructor(private readonly driverService: DriverService) { }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService,RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Post()
@@ -60,7 +61,7 @@ export class DriverController {
         const photoUrl = file?.filename;
         return this.driverService.createDriver(data, photoUrl);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get()
@@ -82,7 +83,7 @@ export class DriverController {
             language,
         });
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get(':id')
@@ -101,7 +102,7 @@ export class DriverController {
     async getMe(@UserData() user: JwtPayload) {
         return this.driverService.getMe(user.id);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Patch(':id')
@@ -169,7 +170,7 @@ export class DriverController {
         return this.driverService.updateMe(user.id, data, photoUrl);
     }
 
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Delete(':id')

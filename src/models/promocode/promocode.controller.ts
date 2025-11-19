@@ -4,12 +4,14 @@ import { CreatePromoCodeDto } from './dto/create.promocode.dto';
 import { PromocodeService } from './promocode.service';
 import { GuardService } from 'src/common/guard/guard.service';
 import { Role } from 'src/common/decorators/role.decorator';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { UpdatePromoCodeDto } from './dto/update.promocode';
 
 @ApiTags('Promo Codes')
 @Controller('promocodes')
 export class PromocodeController {
     constructor(private readonly promocodeService: PromocodeService) { }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Post()
@@ -19,7 +21,7 @@ export class PromocodeController {
     async create(@Body() dto: CreatePromoCodeDto) {
         return this.promocodeService.createPromocode(dto);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get()
@@ -28,7 +30,7 @@ export class PromocodeController {
     async getAll() {
         return this.promocodeService.getAllPromocode();
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get(':id')
@@ -38,17 +40,17 @@ export class PromocodeController {
     async getOne(@Param('id') id: string) {
         return this.promocodeService.getOnePromocode(id);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService,RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Patch(':id')
     @ApiOperation({ summary: 'Promokodni yangilash' })
     @ApiResponse({ status: 200, description: 'Promokod yangilandi' })
     @ApiResponse({ status: 404, description: 'Promokod topilmadi' })
-    async update(@Param('id') id: string, @Body() dto: Partial<CreatePromoCodeDto>) {
+    async update(@Param('id') id: string, @Body() dto: UpdatePromoCodeDto) {
         return this.promocodeService.updatePromocode(id, dto);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Delete(':id')

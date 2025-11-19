@@ -20,12 +20,13 @@ import { fileStorages } from 'src/common/types/upload_types';
 import { Language } from 'src/utils/helper';
 import { CategoryService } from './category.service';
 import { CreateTaxiCategoryDto } from './dto/create.driver.dto';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Taxi Categories')
 @Controller('taxi-categories')
 export class CategoryController {
     constructor(private readonly categoryService: CategoryService) { }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService,RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Post()
@@ -85,7 +86,7 @@ export class CategoryController {
     async getTaxiCategoryById(@Param('id') id: string) {
         return this.categoryService.getTaxiCategoryById(id);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Put(':id')
@@ -126,7 +127,7 @@ export class CategoryController {
         return this.categoryService.updateTaxiCategory(id, data, iconUrl);
     }
 
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Delete(':id')

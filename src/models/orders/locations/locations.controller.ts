@@ -13,6 +13,7 @@ import { GuardService } from 'src/common/guard/guard.service';
 import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { LocationService } from './locations.service';
 import { Role } from 'src/common/decorators/role.decorator';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Location Service') // 📘 Swaggerda bo‘lim nomi
 @Controller('api/location')
@@ -140,7 +141,7 @@ export class LocationController {
         return route;
     }
 
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get('all-locations')

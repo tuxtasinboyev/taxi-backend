@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/config/database/database.service';
 import { CreatePricingRuleDto } from './dto/create.priceRule.dto';
+import { console } from 'inspector';
+import { UpdatePricingRuleDto } from './dto/update.priceRule.dto';
 
 @Injectable()
 export class PriceService {
@@ -93,11 +95,12 @@ export class PriceService {
         if (!rule) throw new NotFoundException('Pricing rule not found')
         return rule
     }
-    async updatePriceRule(id: string, dto: Partial<CreatePricingRuleDto>) {
+    async updatePriceRule(id: string, dto: UpdatePricingRuleDto) {
         const existingRule = await this.prisma.pricingRule.findUnique({ where: { id } });
         if (!existingRule) throw new NotFoundException('Pricing rule not found');
+        console.log('salomss');
 
-        // 🔹 Taxi category borligini tekshiramiz (agar yangisi berilgan bo‘lsa)
+        // 🔹 Taxi category borligin itekshiramiz (agar yangisi berilgan bo‘lsa)
         if (dto.taxiCategoryId) {
             const existsTaxiCategory = await this.prisma.taxiCategory.findUnique({
                 where: { id: dto.taxiCategoryId },

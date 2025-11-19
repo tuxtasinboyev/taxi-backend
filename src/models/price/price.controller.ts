@@ -15,12 +15,14 @@ import { CreatePricingRuleDto } from './dto/create.priceRule.dto';
 import { PriceService } from './price.service';
 import { GuardService } from 'src/common/guard/guard.service';
 import { Role } from 'src/common/decorators/role.decorator';
+import { UpdatePricingRuleDto } from './dto/update.priceRule.dto';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Pricing Rules')
 @Controller('pricing-rules')
 export class PriceController {
     constructor(private readonly priceService: PriceService) { }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Post()
@@ -30,7 +32,7 @@ export class PriceController {
     async create(@Body() dto: CreatePricingRuleDto) {
         return this.priceService.createPriceRule(dto);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get()
@@ -39,7 +41,7 @@ export class PriceController {
     async findAll() {
         return this.priceService.getAllPriceRules();
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get('active')
@@ -48,7 +50,7 @@ export class PriceController {
     async getActive() {
         return this.priceService.getActivePriceRule();
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Get(':id')
@@ -57,7 +59,7 @@ export class PriceController {
     async findById(@Param('id') id: string) {
         return this.priceService.getPriceRuleById(id);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService,RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Patch(':id')
@@ -65,11 +67,11 @@ export class PriceController {
     @ApiResponse({ status: 200, description: 'Pricing qoida yangilandi' })
     async update(
         @Param('id') id: string,
-        @Body() dto: Partial<CreatePricingRuleDto>,
+        @Body() dto: UpdatePricingRuleDto,
     ) {
         return this.priceService.updatePriceRule(id, dto);
     }
-    @UseGuards(GuardService)
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Delete(':id')
