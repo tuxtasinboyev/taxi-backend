@@ -8,3 +8,4 @@ import { RedisModule } from '../redis/redis.module';
   exports: [EmailServiceService]
 })
 export class EmailServiceModule { }
+
