@@ -25,8 +25,8 @@ jobs:
             cd /taxi_backend
 
             if [ ! -d "taxi_backend/.git" ]; then
-               echo "📥 Cloning repository via SSH..."
-               git clone git@github.com:tuxtasinboyev/taxi-backend.git taxi_backend
+              echo "📥 Cloning repository via HTTPS with token..."
+              git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/tuxtasinboyev/taxi-backend.git taxi_backend
             fi
 
             cd taxi_backend
