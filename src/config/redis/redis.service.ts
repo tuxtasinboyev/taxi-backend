@@ -6,7 +6,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     private redis_client: Redis;
 
     async onModuleInit() {
-        this.redis_client = new Redis('rediss://default:AU27AAIncDJiOWFiN2YzMjZjMzc0NGVhOGMwZDFlNjdjNGM3Y2UzZXAyMTk4OTk@driving-finch-19899.upstash.io:6379');
+        this.redis_client = new Redis({
+            host: process.env.REDIS_HOST,
+            port: Number(process.env.REDIS_PORT),
+        });
 
         this.redis_client.on('connect', () => {
             console.log('✅ Redis connected');

@@ -7,19 +7,17 @@ export class EmailServiceService {
 
     constructor() {
         this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: Number(process.env.SMTP_PORT),
-            secure: false, // 587 uchun false
+            service: 'gmail', // ← MUHIM!
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
             },
         });
     }
 
     async sendMail(to: string, subject: string, text: string) {
         const mailOptions = {
-            from: `"Yolla Taxi" <${process.env.EMAIL_FROM}>`,
+            from: `"TaxiGo" <${process.env.EMAIL_USER}>`,
             to,
             subject,
             text,
