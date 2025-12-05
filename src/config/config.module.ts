@@ -11,3 +11,4 @@ import { EmailServiceModule } from './email-service/email-service.module';
     }),JwtModule, RedisModule, EmailServiceModule]
 })
 export class ConfigModules { }
+
