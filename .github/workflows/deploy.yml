@@ -19,7 +19,11 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 30m
           script: |
+            set -e
             echo "📁 Creating app folder if not exists..."
             mkdir -p /taxi_backend
             cd /taxi_backend
@@ -44,5 +48,8 @@ jobs:
 
             echo "🚀 Starting containers..."
             docker compose up -d
+
+            echo "🧹 Cleaning up old Docker images..."
+            docker image prune -f
 
             echo "🎉 Deploy finished successfully!"
