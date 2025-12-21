@@ -1,35 +1,27 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Decimal } from '@prisma/client/runtime/library';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBooleanString, IsEnum, IsOptional, IsString, IsNotEmpty, IsNumberString } from 'class-validator';
 import { Language } from 'src/utils/helper';
 
 export class CreateTaxiCategoryDto {
-    @ApiProperty({
-        example: 'Comfort',
-        description: 'Kategoriya nomi (kiritilgan til bo‘yicha saqlanadi)',
-    })
+    @ApiProperty({ example: 'Comfort' })
     @IsString()
+    @IsNotEmpty()
     name: string;
 
-    @ApiProperty({
-        enum: Language,
-        example: 'uz',
-        description: 'Til kodi (qaysi til bo‘yicha nomni saqlash kerak)',
-    })
+    @ApiProperty({ enum: Language, example: 'uz' })
     @IsEnum(Language)
     language: Language;
 
-    @ApiPropertyOptional({
-        example: true,
-        description: 'Kategoriya aktiv holatda bo‘lsinmi?',
-        default: true,
-    })
+    @ApiPropertyOptional({ example: 'true', default: 'true' })
     @IsOptional()
+    @IsBooleanString()
     is_active?: boolean;
 
     @ApiProperty({
-        example: 2.500,
-        description: 'category narx',
+        example: '5500',
+        description: 'category narxi',
     })
-    price: Decimal;
+    @IsNotEmpty()
+    @IsNumberString() 
+    price: string;
 }

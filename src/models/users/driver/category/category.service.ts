@@ -4,6 +4,7 @@ import { urlGenerator } from 'src/common/types/generator.types';
 import { DatabaseService } from 'src/config/database/database.service';
 import { Language } from 'src/utils/helper';
 import { CreateTaxiCategoryDto } from './dto/create.driver.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CategoryService {
@@ -40,7 +41,7 @@ export class CategoryService {
                 name_ru: data.language === Language.ru ? data.name : null,
                 icon_url: photoUrl,
                 is_active: data.is_active ?? true,
-                price: data.price,
+                price: Prisma.Decimal(data.price),
             },
         });
 
