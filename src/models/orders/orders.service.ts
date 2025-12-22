@@ -38,8 +38,11 @@ export class OrdersService {
         if (!user) throw new NotFoundException('User not found');
 
         // 1️⃣ Eng yaqin haydovchilar
-        const nearbyDrivers = await this.redisGeo.getNearbyDrivers(dto.start_lat, dto.start_lng, 5);
-
+        const nearbyDrivers = await this.redisGeo.getNearbyDrivers(
+            Number(dto.start_lat),
+            Number(dto.start_lng),
+            5
+        );
         // 2️⃣ Narx qoidasini olish
         const rule = await this.prisma.pricingRule.findFirst({
             where: { is_active: true },
@@ -47,7 +50,17 @@ export class OrdersService {
         });
         if (!rule) throw new NotFoundException('No pricing rules found');
 
-        const distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
+        // createOrder service ichida
+        const sLat = Number(dto.start_lat);
+        const sLng = Number(dto.start_lng);
+        const eLat = Number(dto.end_lat);
+        const eLng = Number(dto.end_lng);
+
+        if (isNaN(sLat) || isNaN(sLng) || isNaN(eLat) || isNaN(eLng)) {
+            throw new BadRequestException("Koordinatalar noto'g'ri formatda!");
+        }
+
+        const distanceKm = this.calcDistanceKm(sLat, sLng, eLat, eLng);
         const estimatedTime = distanceKm * 2; // taxminan 2 daqiqa / km
         const basePrice = Number(rule.base_fare);
 

@@ -4,6 +4,7 @@ import { IsEnum, IsLatitude, IsLongitude, IsOptional, IsString } from 'class-val
 export class CreateOrderDto {
     @ApiProperty({ example: 'uuid-user', description: 'User ID (yo‘lovchi)' })
     @IsString()
+    @IsOptional()
     user_id: string;
 
     @ApiProperty({ example: 41.311081, description: 'Boshlanish nuqtasi latitude' })

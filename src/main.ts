@@ -19,13 +19,11 @@ async function bootstrap() {
 
   app.enableCors();
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true, // BU JUDA MUHIM: stringdan numberga o'tkazadi
+    transformOptions: { enableImplicitConversion: true }, // Avtomatik konvertatsiya
+  }));
 
   const config = new DocumentBuilder()
     .setTitle('Taxi API')

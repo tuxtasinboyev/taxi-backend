@@ -30,30 +30,8 @@ import { Language } from 'src/utils/helper';
 import { OrdersService } from './orders.service';
 import { Role } from 'src/common/decorators/role.decorator';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { CreateOrderDto } from './dto/create.orders.dto';
 
-// 🟢 DTO’lar
-class CreateOrderDto {
-    @ApiProperty({ example: 41.311081 })
-    start_lat: number;
-
-    @ApiProperty({ example: 69.240562 })
-    start_lng: number;
-
-    @ApiProperty({ example: 41.327 })
-    end_lat: number;
-
-    @ApiProperty({ example: 69.281 })
-    end_lng: number;
-
-    @ApiProperty({ example: 'eco', required: false })
-    taxiCategoryId?: string;
-
-    @ApiProperty({ example: 'WELCOME50', required: false })
-    promoCode?: string;
-
-    @ApiProperty({ enum: ['cash', 'card'], example: 'card', required: false })
-    payment_method?: 'cash' | 'card';
-}
 export class UpdateOrderDto extends PartialType(CreateOrderDto) { }
 
 class UpdateStatusDto {
@@ -86,20 +64,26 @@ export class OrdersController {
     async createOrder(@Body() dto: CreateOrderDto, @Req() req: Request) {
         try {
             const user = req['user'] as { id: string };
+
+            // Debug uchun terminalga chiqaring, dto kelayotganini ko'rasiz
+            console.log('Kelgan DTO:', dto);
+
             const result = await this.ordersService.createOrder({
                 user_id: user.id,
-                ...dto,
+                start_lat: dto.start_lat, // Aniq ko'rsatib chiqing
+                start_lng: dto.start_lng,
+                end_lat: dto.end_lat,
+                end_lng: dto.end_lng,
+                taxiCategoryId: dto.taxiCategoryId,
+                promoCode: dto.promoCode,
+                payment_method: dto.payment_method,
             });
-            return {
-                success: true,
-                message: 'Order yaratildi',
-                data: result,
-            };
+
+            return { success: true, message: 'Order yaratildi', data: result };
         } catch (error) {
             throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
         }
     }
-
     // 🟡 2. Haydovchi zakasni qabul qiladi
     @Post('accept/:orderId/:driverId')
     @ApiOperation({ summary: 'Haydovchi zakasni qabul qiladi' })
