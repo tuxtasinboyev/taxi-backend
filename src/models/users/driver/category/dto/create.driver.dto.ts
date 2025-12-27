@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBooleanString, IsEnum, IsOptional, IsString, IsNotEmpty, IsNumberString } from 'class-validator';
+import { IsBooleanString, IsEnum, IsOptional, IsString, IsNotEmpty, IsNumberString, IsBoolean } from 'class-validator';
 import { Language } from 'src/utils/helper';
 
 export class CreateTaxiCategoryDto {
@@ -14,7 +14,7 @@ export class CreateTaxiCategoryDto {
 
     @ApiPropertyOptional({ example: 'true', default: 'true' })
     @IsOptional()
-    @IsBooleanString()
+    @IsBoolean()
     is_active?: boolean;
 
     @ApiProperty({

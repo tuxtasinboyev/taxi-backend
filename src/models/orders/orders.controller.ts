@@ -23,14 +23,16 @@ import {
     ApiTags,
     PartialType,
 } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, UserRole } from '@prisma/client';
 import type { Request } from 'express';
-import { GuardService } from 'src/common/guard/guard.service';
-import { Language } from 'src/utils/helper';
-import { OrdersService } from './orders.service';
+import { UserData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
+import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import type { JwtPayload } from 'src/config/jwt/jwt.service';
+import { Language } from 'src/utils/helper';
 import { CreateOrderDto } from './dto/create.orders.dto';
+import { OrdersService } from './orders.service';
 
 export class UpdateOrderDto extends PartialType(CreateOrderDto) { }
 
@@ -222,12 +224,15 @@ export class OrdersController {
         }
     }
 
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin', 'passenger')
+    @ApiBearerAuth()
     @Patch(':id')
-    @ApiOperation({ summary: 'Update an existing order' })
+    @ApiOperation({ summary: `Update an existing order ${UserRole.admin} , ${UserRole.passenger}` })
     @ApiParam({ name: 'id', description: 'Order ID' })
     @ApiBody({ type: UpdateOrderDto })
     @ApiResponse({ status: 200, description: 'Order updated successfully' })
-    async updateOrder(@Param('id') id: string, @Body() dto: UpdateOrderDto) {
-        return this.ordersService.updateOrder(id, dto);
+    async updateOrder(@Param('id') id: string, @Body() dto: UpdateOrderDto, @UserData() user: JwtPayload) {
+        return this.ordersService.updateOrder(id, dto, user);
     }
 }
