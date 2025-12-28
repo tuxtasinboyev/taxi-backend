@@ -106,6 +106,23 @@ export class OrdersController {
         }
     }
 
+    // 🟢 4. Foydalanuvchining o‘z zakaslari
+    @UseGuards(GuardService)
+    @Get('my')
+    @ApiOperation({ summary: 'Foydalanuvchining o‘z zakaslarini olish' })
+    async getMyOrders(@Req() req: Request) {
+        try {
+            const user = req['user'] as { id: string };
+            const orders = await this.ordersService.getMyOrders(user.id);
+            return {
+                success: true,
+                message: 'Sizning zakaslaringiz',
+                data: orders,
+            };
+        } catch (error) {
+            throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+        }
+    }
     @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @Get('get-all-orders')
@@ -188,23 +205,7 @@ export class OrdersController {
     }
 
 
-    // 🟢 4. Foydalanuvchining o‘z zakaslari
-    @UseGuards(GuardService)
-    @Get('my')
-    @ApiOperation({ summary: 'Foydalanuvchining o‘z zakaslarini olish' })
-    async getMyOrders(@Req() req: Request) {
-        try {
-            const user = req['user'] as { id: string };
-            const orders = await this.ordersService.getMyOrders(user.id);
-            return {
-                success: true,
-                message: 'Sizning zakaslaringiz',
-                data: orders,
-            };
-        } catch (error) {
-            throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
-        }
-    }
+   
 
     // 🟡 5. Order statusini yangilash
     @Patch('update-status/:orderId')
