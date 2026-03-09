@@ -23,7 +23,7 @@ services:
 
   app:
     build: .
-    container_name: edora_app
+    container_name: taxi_app
     restart: always
     env_file:
       - .env
@@ -39,10 +39,9 @@ services:
         npm run start:prod
       "
     environment:
-      DATABASE_URL: postgres://postgres:2008@db:5432/taxi_db
+      DATABASE_URL: postgresql://postgres:2008@db:5432/taxi_db
       REDIS_HOST: redis
       REDIS_PORT: 6379
 
 volumes:
   postgres_data: 
-
