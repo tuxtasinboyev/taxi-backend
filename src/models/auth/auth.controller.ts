@@ -12,11 +12,32 @@ import { registerApiBody } from 'src/common/types/api.body.types';
 import { fileStorages } from 'src/common/types/upload_types';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create.register.dto';
+import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
+import { LoginAuthDto } from './dto/login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
+
+
+  @Post('send-otp')
+  @ApiOperation({ summary: 'SMS OTP yuborish' })
+  sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
+  }
+
+  @Post('register')
+  @ApiOperation({ summary: 'Ro\'yxatdan o\'tish' })
+  register(@Body() dto: RegisterAuthDto) {
+    return this.authService.register(dto);
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Kirish' })
+  login(@Body() dto: LoginAuthDto) {
+    return this.authService.login(dto);
+  }
 
     @Post('register')
     @ApiOperation({ summary: 'Register new user' })

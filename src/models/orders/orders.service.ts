@@ -6,7 +6,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
+import { OrderStatus, PaymentMethod, Prisma, PrismaClient } from '@prisma/client';
 import { DatabaseService } from 'src/config/database/database.service';
 import { Language } from 'src/utils/helper';
 import { SocketGateway } from '../socket/socket.gateway';
@@ -23,7 +23,6 @@ export class OrdersService {
         private readonly socketGateway: SocketGateway,
     ) { }
 
-    // 🟢 1. Order yaratish
     async createOrder(dto: {
         user_id: string;
         start_lat: number;
@@ -34,24 +33,20 @@ export class OrdersService {
         promoCode?: string;
         payment_method?: PaymentMethod
     }) {
-        // 🧩 Foydalanuvchini tekshirish
         const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
         if (!user) throw new NotFoundException('User not found');
 
-        // 1️⃣ Eng yaqin haydovchilar
         const nearbyDrivers = await this.redisGeo.getNearbyDrivers(
             Number(dto.start_lat),
             Number(dto.start_lng),
             5
         );
-        // 2️⃣ Narx qoidasini olish
         const rule = await this.prisma.pricingRule.findFirst({
             where: { is_active: true },
             orderBy: { updated_at: 'desc' },
         });
         if (!rule) throw new NotFoundException('No pricing rules found');
 
-        // createOrder service ichida
         const sLat = Number(dto.start_lat);
         const sLng = Number(dto.start_lng);
         const eLat = Number(dto.end_lat);
@@ -62,10 +57,9 @@ export class OrdersService {
         }
 
         const distanceKm = this.calcDistanceKm(sLat, sLng, eLat, eLng);
-        const estimatedTime = distanceKm * 2; // taxminan 2 daqiqa / km
+        const estimatedTime = distanceKm * 2; 
         const basePrice = Number(rule.base_fare);
 
-        // 🚕 TaxiCategory narxi (umumiy)
         let categoryPrice = 0;
         if (dto.taxiCategoryId) {
             const category = await this.prisma.taxiCategory.findUnique({
@@ -75,7 +69,6 @@ export class OrdersService {
             categoryPrice = Number(category.price) || 0;
         }
 
-        // 💰 Yangi narx formulasi
         const price =
             basePrice +
             Number(rule.per_km) * distanceKm +
@@ -84,7 +77,6 @@ export class OrdersService {
 
         let finalPrice = price * Number(rule.surge_multiplier);
 
-        // 3️⃣ PromoCode tekshirish
         let promoApplied = false;
         let appliedPromo: { code: string; discount_percent: number; discount_amount: number } | null = null;
 
@@ -111,7 +103,6 @@ export class OrdersService {
             }
         }
 
-        // 4️⃣ Order yaratish
         const order = await this.prisma.order.create({
             data: {
                 user_id: dto.user_id,
@@ -126,7 +117,6 @@ export class OrdersService {
             },
         });
 
-        // 5️⃣ Payment yaratish
         await this.prisma.payment.create({
             data: {
                 order_id: order.id,
@@ -136,7 +126,6 @@ export class OrdersService {
             },
         });
 
-        // 6️⃣ Haydovchilarga real-time event
         for (const driver of nearbyDrivers) {
             this.socketGateway.emitToDriver(driver.driverId, 'order:request', {
                 order_id: order.id,
@@ -149,7 +138,6 @@ export class OrdersService {
         return { order, drivers: nearbyDrivers, promoApplied, appliedPromo };
     }
 
-    // 🟡 2. Haydovchi zakasni qabul qiladi
     async acceptOrder(driverId: string, orderId: string) {
         const driver = await this.prisma.user.findUnique({ where: { id: driverId } });
         if (!driver) throw new NotFoundException('Driver not found');
@@ -165,13 +153,11 @@ export class OrdersService {
             data: { driver_id: driverId, status: 'accepted' },
         });
 
-        // 🔄 boshqa haydovchilarga cancel
         this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
 
         return updatedOrder;
     }
 
-    // 🟢 3. Order yakunlash
     async completeOrder(orderId: string) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
@@ -229,7 +215,6 @@ export class OrdersService {
         return updatedOrder;
     }
 
-    // 🧮 Masofani hisoblash
     private calcDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
         const R = 6371;
         const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -243,11 +228,9 @@ export class OrdersService {
         return R * c;
     }
     async updateOrderStatus(orderId: string, status: OrderStatus) {
-        // 1️⃣ Orderni topamiz
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException('Order not found');
 
-        // 2️⃣ Status o‘zgarishlariga cheklov qo‘yish (optional)
         const validStatuses: OrderStatus[] = [
             'pending',
             'accepted',
@@ -259,13 +242,11 @@ export class OrdersService {
         if (!status || !validStatuses.includes(status))
             throw new BadRequestException(`Invalid status: ${status}`);
 
-        // 3️⃣ Orderni yangilaymiz
         const updated = await this.prisma.order.update({
             where: { id: orderId },
             data: { status },
         });
 
-        // 4️⃣ Socket orqali haydovchi va yo‘lovchiga yuboramiz
         if (updated.driver_id) {
             this.socketGateway.emitToDriver(updated.driver_id, 'order:status_updated', {
                 order_id: updated.id,
@@ -278,7 +259,6 @@ export class OrdersService {
             status: updated.status,
         });
 
-        // 5️⃣ Agar status “completed” bo‘lsa — yakunlash logikasini ishlatish (optional)
         if (status === 'completed') {
             await this.completeOrder(orderId);
         }
@@ -288,7 +268,6 @@ export class OrdersService {
         return updated;
     }
 
-    // 🟢 4. Foydalanuvchining o'z zakaslari
     async getMyOrders(userId: string) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
@@ -328,7 +307,7 @@ export class OrdersService {
             dto.end_lat !== undefined && dto.end_lng !== undefined
         ) {
             distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
-            estimatedTime = distanceKm * 2; // Taxminiy vaqt
+            estimatedTime = distanceKm * 2; 
 
             const rule = await this.prisma.pricingRule.findFirst({
                 where: { is_active: true },
@@ -353,7 +332,6 @@ export class OrdersService {
             finalPrice = price * Number(rule.surge_multiplier);
         }
 
-        // 💸 4. PromoCode tekshirish
         let promoApplied = false;
         let appliedPromo: { code: string; discount_amount: number } | null = null;
         if (dto.promoCode) {
@@ -374,23 +352,22 @@ export class OrdersService {
             }
         }
 
-        // 🟢 5. Faqat ruxsat etilgan maydonlarni updateData'ga yig'ish
         const updateData: any = {};
         const allowedFields = ['start_lat', 'start_lng', 'end_lat', 'end_lng', 'start_address', 'end_address', 'taxiCategoryId'];
 
         allowedFields.forEach(field => {
             if (dto[field] !== undefined) {
                 if (['start_lat', 'start_lng', 'end_lat', 'end_lng'].includes(field)) {
-                    updateData[field] = new Prisma.Decimal(dto[field]);
+                    updateData[field] = new PrismaClient.Decimal(dto[field]);
                 } else {
                     updateData[field] = dto[field];
                 }
             }
         });
 
-        updateData.price = new Prisma.Decimal(finalPrice);
-        updateData.distance_km = new Prisma.Decimal(distanceKm);
-        updateData.duration_min = new Prisma.Decimal(estimatedTime);
+        updateData.price = new PrismaClient.Decimal(finalPrice);
+        updateData.distance_km = new PrismaClient.Decimal(distanceKm);
+        updateData.duration_min = new PrismaClient.Decimal(estimatedTime);
         updateData.updated_at = new Date();
 
         // 🟢 6. Bazada yangilash
@@ -403,7 +380,7 @@ export class OrdersService {
         await this.prisma.payment.updateMany({
             where: { order_id: orderId },
             data: {
-                amount: new Prisma.Decimal(finalPrice),
+                amount: new PrismaClient.Decimal(finalPrice),
                 method: dto.payment_method ?? (order.payment as any)?.method ?? 'cash',
                 status: 'pending',
             },
@@ -431,7 +408,7 @@ export class OrdersService {
         price_max?: number,
         status?: OrderStatus
     ) {
-        const whereClause: Prisma.OrderWhereInput = {};
+        const whereClause: any = {};
 
         if (search) {
             const nameField = language === 'uz' ? 'name_uz' :
@@ -468,8 +445,8 @@ export class OrdersService {
 
         if (price_min !== undefined || price_max !== undefined) {
             whereClause.price = {};
-            if (price_min !== undefined) whereClause.price.gte = new Prisma.Decimal(price_min);
-            if (price_max !== undefined) whereClause.price.lte = new Prisma.Decimal(price_max);
+            if (price_min !== undefined) whereClause.price.gte = new PrismaClient.Decimal(price_min);
+            if (price_max !== undefined) whereClause.price.lte = new PrismaClient.Decimal(price_max);
         }
 
         if (status) whereClause.status = status;
@@ -633,14 +610,12 @@ export class OrdersService {
 
         const lang = language;
 
-        // User
         const userName =
             lang === 'uz' ? order.user.name_uz :
                 lang === 'ru' ? order.user.name_ru :
                     lang === 'en' ? order.user.name_en :
                         order.user.name_uz;
 
-        // Driver
         let driverName: string | null = null;
         let carModel: string | null = null;
         let carColor: string | null = null;
@@ -665,7 +640,6 @@ export class OrdersService {
                             order.driver.car_color_uz;
         }
 
-        // TaxiCategory
         let categoryName: string | null = null;
         if (order.TaxiCategory) {
             categoryName =
@@ -675,7 +649,6 @@ export class OrdersService {
                             order.TaxiCategory.name_uz;
         }
 
-        // Reviews
         const reviews = order.reviews.map(r => {
             const comment =
                 lang === 'uz' ? r.comment_uz :

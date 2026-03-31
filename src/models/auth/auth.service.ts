@@ -8,9 +8,88 @@ import { OtpService } from 'src/config/email-service/otp/otp.service';
 import { JwtServices } from 'src/config/jwt/jwt.service';
 import { Language } from 'src/utils/helper';
 import { CreateUserDto } from './dto/create.register.dto';
+import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
+import { RedisService } from 'src/config/redis/redis.service';
+import { SmsService } from 'src/common/services/sms.service';
+import { LoginAuthDto } from './dto/login.dto';
 @Injectable()
 export class AuthService {
-    constructor(private prisma: DatabaseService, private jwt: JwtServices, private config: ConfigService, private otpService: OtpService) { }
+    constructor(private prisma: DatabaseService, private jwt: JwtServices, private config: ConfigService, private otpService: OtpService,private redis:RedisService,private sms:SmsService) { }
+
+
+    async sendOtp(dto: SendOtpDto) {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        await this.redis.set(`register-otp:${dto.phone}`, otp, 120);
+
+        const messages = {
+            uz: `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp} `,
+            // ru: `ProHome: Код подтверждения: ${otp}. Никому не сообщайте код!`,
+            // en: `ProHome: Verification code: ${otp}. Never share this code!`,
+        };
+
+        await this.sms.sendSMS(messages[dto.lang], dto.phone);
+
+        return { message: 'OTP yuborildi' };
+    }
+
+    async register(payload: RegisterAuthDto) {
+        await this.verifyOtp(payload.phone, payload.otp);
+
+        const existsUser = await this.prisma.user.findUnique({
+            where: { phone: payload.phone },
+        });
+
+        if (existsUser) {
+            return this.generateTokens(existsUser);
+        }
+
+        const user = await this.prisma.user.create({
+            data: {
+                phone: payload.phone,
+                role: UserRole.passenger,
+            },
+        });
+
+        return this.generateTokens(user);
+    }
+
+
+
+    private async verifyOtp(phone: string, otp: string) {
+        const savedOtp = await this.redis.get(`register-otp:${phone}`);
+        if (!savedOtp) {
+            throw new NotFoundException('OTP topilmadi yoki muddati tugagan');
+        }
+
+        if (savedOtp !== otp) {
+            throw new BadRequestException('OTP noto\'g\'ri');
+        }
+
+        await this.redis.del(`register-otp:${phone}`);
+    }
+
+    private async generateTokens(user: any) {
+        const [accessToken, refreshToken] = await Promise.all([
+            this.jwt.generateAccessToken(user),
+            this.jwt.generateRefreshToken(user),
+        ]);
+
+        return { safeUser: user, accessToken, refreshToken };
+    }
+
+    async login(payload: LoginAuthDto) {
+        await this.verifyOtp(payload.phone, payload.otp);
+
+        const user = await this.prisma.user.findUnique({
+            where: { phone: payload.phone },
+        });
+
+        if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+
+        return this.generateTokens(user);
+    }
+
     async registerUser(data: CreateUserDto, photoUrl?: string) {
         const existsEmail = await this.prisma.user.findUnique({
             where: { email: data.email }

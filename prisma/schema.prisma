@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Foydalanuvchilar jadvali (yo'lovchi, haydovchi, admin)
 model User {
   id            String   @id @default(uuid())
   name_uz       String?  @db.VarChar(100)
@@ -31,11 +30,11 @@ model User {
   chatMessages    ChatMessage[]
   chatMembers     ChatParticipant[]
   driverLocations DriverLocation[]
-  UserLocation    UserLocation[]
+  userLocations   UserLocation[]
 }
 
 model Driver {
-  id           String       @id @default(uuid())
+  id           String       @id
   car_model_uz String?      @db.VarChar(100)
   car_model_ru String?      @db.VarChar(100)
   car_model_en String?      @db.VarChar(100)
@@ -51,15 +50,17 @@ model Driver {
 
   user            User             @relation(fields: [id], references: [id], onDelete: Cascade)
   orders          Order[]
-  TaxiCategory    TaxiCategory?    @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategory    TaxiCategory?    @relation(fields: [taxiCategoryId], references: [id])
   taxiCategoryId  String?
   driverLocations DriverLocation[]
 }
 
 model DriverLocation {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   driver_id String
   order_id  String?
+  userId    String?
+
   lat       Decimal  @db.Decimal(10, 8)
   lng       Decimal  @db.Decimal(10, 8)
   accuracy  Int?
@@ -67,10 +68,9 @@ model DriverLocation {
   bearing   Decimal? @db.Decimal(6, 2)
   timestamp DateTime @default(now())
 
-  driver Driver  @relation(fields: [driver_id], references: [id], onDelete: Cascade)
-  order  Order?  @relation(fields: [order_id], references: [id], onDelete: SetNull)
-  User   User?   @relation(fields: [userId], references: [id])
-  userId String?
+  driver Driver @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  order  Order? @relation(fields: [order_id], references: [id], onDelete: SetNull)
+  user   User?  @relation(fields: [userId], references: [id])
 
   @@index([driver_id])
   @@index([order_id])
@@ -78,9 +78,10 @@ model DriverLocation {
 }
 
 model UserLocation {
-  id        String   @id @default(uuid())
-  user_id   String
-  order_id  String?
+  id       String  @id @default(uuid())
+  user_id  String
+  order_id String?
+
   lat       Decimal  @db.Decimal(10, 6)
   lng       Decimal  @db.Decimal(10, 6)
   accuracy  Decimal? @db.Decimal(6, 2)
@@ -97,7 +98,7 @@ model TaxiCategory {
   name_en    String?  @unique @db.VarChar(50)
   icon_url   String?
   price      Decimal? @db.Decimal(10, 3)
-  is_active  Boolean? @default(true)
+  is_active  Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -106,39 +107,42 @@ model TaxiCategory {
   pricingRules PricingRule[]
 }
 
-/// Buyurtmalar jadvali
 model Order {
-  id           String      @id @default(uuid())
-  user_id      String
-  driver_id    String?
-  start_lat    Decimal     @db.Decimal(10, 6)
-  start_lng    Decimal     @db.Decimal(10, 6)
-  end_lat      Decimal     @db.Decimal(10, 6)
-  end_lng      Decimal     @db.Decimal(10, 6)
+  id        String  @id @default(uuid())
+  user_id   String
+  driver_id String?
+
+  start_lat Decimal @db.Decimal(10, 6)
+  start_lng Decimal @db.Decimal(10, 6)
+  end_lat   Decimal @db.Decimal(10, 6)
+  end_lng   Decimal @db.Decimal(10, 6)
+
   distance_km  Decimal?    @db.Decimal(10, 2)
   duration_min Decimal?    @db.Decimal(10, 2)
   price        Decimal     @db.Decimal(10, 2)
   status       OrderStatus @default(pending)
-  created_at   DateTime    @default(now())
-  updated_at   DateTime    @updatedAt
-  finished_at  DateTime?
 
-  user            User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  driver          Driver?          @relation(fields: [driver_id], references: [id], onDelete: Cascade)
-  fare            FareBreakdown?
-  payment         Payment?
-  reviews         Review[]
-  chats           Chat[]
-  TaxiCategory    TaxiCategory?    @relation(fields: [taxiCategoryId], references: [id])
-  taxiCategoryId  String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  finished_at DateTime?
+
+  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  driver         Driver?        @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  fare           FareBreakdown?
+  payment        Payment?
+  reviews        Review[]
+  chats          Chat[]
+  taxiCategory   TaxiCategory?  @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId String?
+
   driverLocations DriverLocation[]
-  UserLocation    UserLocation[]
+  userLocations   UserLocation[]
 }
 
-/// Safar narxini hisoblash tafsilotlari
 model FareBreakdown {
-  id               String   @id @default(uuid())
-  order_id         String   @unique
+  id       String @id @default(uuid())
+  order_id String @unique
+
   base_fare        Decimal  @db.Decimal(10, 2)
   distance_km      Decimal? @db.Decimal(10, 4)
   time_min         Decimal? @db.Decimal(10, 4)
@@ -148,128 +152,137 @@ model FareBreakdown {
   promo_discount   Decimal? @db.Decimal(10, 2)
   estimated_fare   Decimal? @db.Decimal(10, 2)
   final_fare       Decimal  @db.Decimal(10, 2)
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
 }
 
-/// Narx qoidalari
 model PricingRule {
-  id               String        @id @default(uuid())
-  city_uz          String?       @db.VarChar(100)
-  city_ru          String?       @db.VarChar(100)
-  city_en          String?       @db.VarChar(100)
-  base_fare        Decimal       @db.Decimal(10, 2)
-  per_km           Decimal       @db.Decimal(10, 2)
-  per_min          Decimal       @db.Decimal(10, 2)
-  surge_multiplier Decimal       @default(1.0) @db.Decimal(5, 2)
-  currency         String        @db.VarChar(10)
-  is_active        Boolean       @default(true)
-  valid_from       DateTime
-  valid_to         DateTime?
-  deleted_at       DateTime?
-  created_at       DateTime      @default(now())
-  updated_at       DateTime      @updatedAt
-  TaxiCategory     TaxiCategory? @relation(fields: [taxiCategoryId], references: [id])
-  taxiCategoryId   String?
+  id      String  @id @default(uuid())
+  city_uz String? @db.VarChar(100)
+  city_ru String? @db.VarChar(100)
+  city_en String? @db.VarChar(100)
+
+  base_fare        Decimal @db.Decimal(10, 2)
+  per_km           Decimal @db.Decimal(10, 2)
+  per_min          Decimal @db.Decimal(10, 2)
+  surge_multiplier Decimal @default(1.0) @db.Decimal(5, 2)
+
+  currency  String  @db.VarChar(10)
+  is_active Boolean @default(true)
+
+  valid_from DateTime
+  valid_to   DateTime?
+  deleted_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  taxiCategory   TaxiCategory? @relation(fields: [taxiCategoryId], references: [id])
+  taxiCategoryId String?
 }
 
-/// To'lovlar
 model Payment {
-  id         String        @id @default(uuid())
-  order_id   String        @unique
-  amount     Decimal       @db.Decimal(10, 2)
-  method     PaymentMethod @default(payme)
-  status     PaymentStatus @default(pending)
-  paid_at    DateTime?     @default(now())
-  created_at DateTime      @default(now())
-  updated_at DateTime      @updatedAt
-  active     Boolean       @default(true)
+  id       String        @id @default(uuid())
+  order_id String        @unique
+  amount   Decimal       @db.Decimal(10, 2)
+  method   PaymentMethod @default(payme)
+  status   PaymentStatus @default(pending)
+
+  paid_at    DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  active     Boolean   @default(true)
 
   order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
 }
 
-/// Foydalanuvchi kartalari
 model UserCard {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   user_id      String
-  provider     String   @db.VarChar(50)
+  provider     String  @db.VarChar(50)
   token        String
-  last4        String   @db.VarChar(4)
-  brand        String   @db.VarChar(50)
+  last4        String  @db.VarChar(4)
+  brand        String  @db.VarChar(50)
   expiry_month Int
   expiry_year  Int
-  is_default   Boolean  @default(false)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  is_default   Boolean @default(false)
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
-}
-
-/// Elektron hamyon
-model Wallet {
-  user_id    String   @id @default(uuid())
-  balance    Decimal  @default(0) @db.Decimal(10, 2)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-/// Reyting va izohlar
+model Wallet {
+  user_id String  @id
+  balance Decimal @default(0) @db.Decimal(10, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
 model Review {
-  id           String   @id @default(uuid())
+  id           String @id @default(uuid())
   order_id     String
   from_user_id String
   to_user_id   String
-  rating       Int
-  comment_uz   String?
-  comment_ru   String?
-  comment_en   String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+
+  rating     Int
+  comment_uz String?
+  comment_ru String?
+  comment_en String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
   from  User  @relation("ReviewsFrom", fields: [from_user_id], references: [id], onDelete: Cascade)
   to    User  @relation("ReviewsTo", fields: [to_user_id], references: [id], onDelete: Cascade)
 }
 
-/// Xabarnomalar
 model Notification {
-  id         String   @id @default(uuid())
+  id         String  @id @default(uuid())
   user_id    String
   message_uz String?
   message_ru String?
   message_en String?
-  type       String   @db.VarChar(20)
-  is_read    Boolean  @default(false)
+
+  type    String  @db.VarChar(20)
+  is_read Boolean @default(false)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-/// Promo kodlar
 model PromoCode {
-  id               String    @id @default(uuid())
-  code             String    @unique
+  id               String @id @default(uuid())
+  code             String @unique
   discount_percent Int
-  valid_from       DateTime
-  valid_to         DateTime?
-  is_active        Boolean   @default(true)
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+
+  valid_from DateTime
+  valid_to   DateTime?
+  is_active  Boolean   @default(true)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
-/// Chatlar
 model Chat {
-  id         String   @id @default(uuid())
+  id         String  @id @default(uuid())
   subject_uz String?
   subject_ru String?
   subject_en String?
-  type       String   @db.VarChar(20)
-  order_id   String?
+  type       String  @db.VarChar(20)
+
+  order_id String?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -278,7 +291,6 @@ model Chat {
   messages     ChatMessage[]
 }
 
-/// Chat ishtirokchilari
 model ChatParticipant {
   id        String   @id @default(uuid())
   chat_id   String
@@ -289,23 +301,23 @@ model ChatParticipant {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-/// Chat xabarlari
 model ChatMessage {
-  id           String      @id @default(uuid())
-  chat_id      String
-  sender_id    String
+  id        String @id @default(uuid())
+  chat_id   String
+  sender_id String
+
   message_uz   String?
   message_ru   String?
   message_en   String?
   message_type MessageType @default(text)
-  created_at   DateTime    @default(now())
-  updated_at   DateTime    @updatedAt
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   chat   Chat @relation(fields: [chat_id], references: [id], onDelete: Cascade)
   sender User @relation(fields: [sender_id], references: [id], onDelete: Cascade)
 }
 
-/// ENUMlar
 enum UserRole {
   passenger
   driver

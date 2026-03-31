@@ -15,14 +15,13 @@ interface ConnectedClient {
 
 @WebSocketGateway({
     cors: { origin: '*' },
-    namespace: '/ws', // umumiy namespace (optional)
+    namespace: '/ws', 
     transports: ['websocket', 'polling'],
 })
 export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
     private logger = new Logger('SocketGateway');
 
-    // Har bir ulanayotgan foydalanuvchini saqlaymiz
     private clients = new Map<string, ConnectedClient>();
 
     handleConnection(client: Socket) {
@@ -34,7 +33,6 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.clients.delete(client.id);
     }
 
-    // Foydalanuvchi identifikatsiyasi (clientdan yuboriladi)
     registerUser(socket: Socket, payload: { userId?: string; driverId?: string }) {
         this.clients.set(socket.id, {
             socketId: socket.id,
@@ -47,7 +45,6 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
     }
 
-    // 🔸 Maxsus emit — 1 haydovchiga
     emitToDriver(driverId: string, event: string, data: any) {
         for (const client of this.clients.values()) {
             if (client.driverId === driverId) {
@@ -57,7 +54,6 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
 
-    // 🔸 Maxsus emit — 1 foydalanuvchiga
     emitToUser(userId: string, event: string, data: any) {
         for (const client of this.clients.values()) {
             if (client.userId === userId) {
@@ -67,7 +63,6 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
 
-    // 🔸 Boshqa haydovchilarni xabardor qilish (masalan, orderni boshqa qabul qilganda)
     broadcastExceptDriver(exceptDriverId: string, event: string, data: any) {
         for (const client of this.clients.values()) {
             if (client.driverId !== exceptDriverId) {
@@ -77,8 +72,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.debug(`📢 Broadcast to all except driver ${exceptDriverId}: ${event}`);
     }
 
-    // 🔸 Barcha clientlarga umumiy xabar
-    broadcastAll(event: string, data: any) {
+        broadcastAll(event: string, data: any) {
         this.server.emit(event, data);
         this.logger.debug(`🌍 Broadcast all: ${event}`);
     }
