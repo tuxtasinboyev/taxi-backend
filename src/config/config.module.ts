@@ -8,7 +8,8 @@ import { EmailServiceModule } from './email-service/email-service.module';
 @Module({
     imports: [DatabaseModule, JwtModules, ConfigModule.forRoot({
         isGlobal: true,
-    }),JwtModule, RedisModule, EmailServiceModule]
+    }), JwtModule, RedisModule, EmailServiceModule],
+    exports:[RedisModule]
 })
 export class ConfigModules { }
 
