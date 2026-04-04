@@ -21,26 +21,56 @@ export class AuthController {
     constructor(private readonly authService: AuthService) { }
 
 
-  @Post('send-otp')
-  @ApiOperation({ summary: 'SMS OTP yuborish' })
-  sendOtp(@Body() dto: SendOtpDto) {
-    return this.authService.sendOtp(dto);
-  }
-
-  @Post('register')
-  @ApiOperation({ summary: 'Ro\'yxatdan o\'tish' })
-  register(@Body() dto: RegisterAuthDto) {
-    return this.authService.register(dto);
-  }
-
-  @Post('login')
-  @ApiOperation({ summary: 'Kirish' })
-  login(@Body() dto: LoginAuthDto) {
-    return this.authService.login(dto);
-  }
+    @Post('send-otp')
+    @ApiOperation({ summary: 'SMS OTP yuborish' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                phone: { type: 'string', example: '+998901234567' },
+                lang: { type: 'string', enum: ['uz', 'ru', 'en'], example: 'uz' }
+            },
+            required: ['phone', 'lang'],
+        },
+    })
+    sendOtp(@Body() dto: SendOtpDto) {
+        return this.authService.sendOtp(dto);
+    }
 
     @Post('register')
-    @ApiOperation({ summary: 'Register new user' })
+    @ApiOperation({ summary: 'Telefon raqami orqali ro\'yxatdan o\'tish (OTP bilan)' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                phone: { type: 'string', example: '+998901234567' },
+                otp: { type: 'string', example: '123456' }
+            },
+            required: ['phone', 'otp'],
+        },
+    })
+    register(@Body() dto: RegisterAuthDto) {
+        return this.authService.register(dto);
+    }
+
+    @Post('login')
+    @ApiOperation({ summary: 'Telefon raqami orqali kirish (OTP bilan)' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                phone: { type: 'string', example: '+998901234567' },
+                otp: { type: 'string', example: '123456' }
+            },
+            required: ['phone', 'otp'],
+        },
+    })
+    login(@Body() dto: LoginAuthDto) {
+        return this.authService.login(dto);
+    }
+
+    @Post('register-full')
+    @ApiOperation({ summary: 'To\'liq ro\'yxatdan o\'tish (rasm, parol bilan)' })
     @ApiConsumes('multipart/form-data')
     @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
     @ApiBody(registerApiBody)
@@ -48,13 +78,10 @@ export class AuthController {
         @Body() body: CreateUserDto,
         @UploadedFile() file?: Express.Multer.File,
     ) {
-        // if(!file)throw new BadRequestException('siz rasm quyishish kerak')
-        if(file){
-
+        if (file) {
             return this.authService.registerUser(body, file.filename);
         }
         return this.authService.registerUser(body);
-
     }
 
     @Post('login/email')
