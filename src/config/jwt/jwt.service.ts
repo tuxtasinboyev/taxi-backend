@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserRole } from '@prisma/client';
+import { SignOptions } from 'jsonwebtoken';
 
 export type JwtPayload = {
     id: string;
@@ -20,7 +21,7 @@ export class JwtServices {
     private async signToken(
         payload: JwtPayload,
         secretKey: string,
-        expiresIn: string,
+        expiresIn: SignOptions['expiresIn'],
     ): Promise<string> {
         return this.jwt.signAsync(payload, {
             secret: secretKey,
@@ -30,7 +31,7 @@ export class JwtServices {
 
     async generateAccessToken(user: Omit<User, 'password_hash'>): Promise<string> {
         const secret = this.config.get<string>('JWT_ACCESS_TOKEN_SECRET', 'access_default_secret');
-        const expiresIn = this.config.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
+        const expiresIn = this.config.get<SignOptions['expiresIn']>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
 
         return this.signToken(
             {
@@ -46,7 +47,7 @@ export class JwtServices {
 
     async generateRefreshToken(user: Omit<User, 'password_hash'>): Promise<string> {
         const secret = this.config.get<string>('JWT_REFRESH_TOKEN_SECRET', 'refresh_default_secret');
-        const expiresIn = this.config.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN', '7d');
+        const expiresIn = this.config.get<SignOptions['expiresIn']>('JWT_REFRESH_TOKEN_EXPIRES_IN', '7d');
 
         return this.signToken(
             {

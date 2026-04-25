@@ -27,7 +27,7 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Taxi API')
-    .setDescription('API documentation for Taxi project (OTP, Auth, etc.)')
+    .setDescription('API documentation for Taxi project. Auth bo`limidagi send-otp endpointi Eskiz SMS provider orqali ishlaydi.')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

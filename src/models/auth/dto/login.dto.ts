@@ -11,6 +11,18 @@ export class LoginAuthDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  @Length(6, 6)
-  otp: string;
+  password: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(9, 13)
+  phone: string;
+
+  @ApiProperty({ example: 'newStrongPassword123' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
 }

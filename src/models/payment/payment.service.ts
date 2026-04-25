@@ -28,7 +28,7 @@ export class PaymentService {
                     include: {
                         driver: {
                             include: {
-                                TaxiCategory: true
+                                taxiCategory: true
                             }
                         },
                         user: {
@@ -43,7 +43,7 @@ export class PaymentService {
                                 phone: true,
                             }
                         },
-                        UserLocation: true
+                        userLocations: true
                     }
                 }
             }
@@ -60,7 +60,7 @@ export class PaymentService {
                     include: {
                         driver: {
                             include: {
-                                TaxiCategory: true
+                                taxiCategory: true
                             }
                         },
                         user: {
@@ -75,7 +75,7 @@ export class PaymentService {
                                 phone: true,
                             }
                         },
-                        UserLocation: true
+                        userLocations: true
                     }
                 }
             }
@@ -94,7 +94,7 @@ export class PaymentService {
                     include: {
                         driver: {
                             include: {
-                                TaxiCategory: true
+                                taxiCategory: true
                             }
                         },
                         user: {
@@ -109,7 +109,7 @@ export class PaymentService {
                                 phone: true,
                             }
                         },
-                        UserLocation: true
+                        userLocations: true
                     }
                 }
             }
@@ -131,7 +131,7 @@ export class PaymentService {
             include: {
                 order: {
                     include: {
-                        TaxiCategory: true, // agar kategoriyani ko'rsatmoqchi bo'lsak
+                        taxiCategory: true,
                     },
                 },
             },
@@ -141,12 +141,12 @@ export class PaymentService {
         // Tilga qarab ma'lumotlarni map qilish
         const mappedPayments = payments.map(payment => {
             let taxiCategoryName: string | null = null;
-            if (payment.order.TaxiCategory) {
+            if (payment.order.taxiCategory) {
                 taxiCategoryName =
-                    language === 'uz' ? payment.order.TaxiCategory.name_uz :
-                        language === 'ru' ? payment.order.TaxiCategory.name_ru :
-                            language === 'en' ? payment.order.TaxiCategory.name_en :
-                                payment.order.TaxiCategory.name_uz;
+                    language === 'uz' ? payment.order.taxiCategory.name_uz :
+                        language === 'ru' ? payment.order.taxiCategory.name_ru :
+                            language === 'en' ? payment.order.taxiCategory.name_en :
+                                payment.order.taxiCategory.name_uz;
             }
 
             return {
@@ -181,7 +181,7 @@ export class PaymentService {
             },
             include: {
                 order: {
-                    include: { TaxiCategory: true },
+                    include: { taxiCategory: true },
                 },
             },
         });
@@ -190,12 +190,12 @@ export class PaymentService {
 
         // Tilga qarab TaxiCategory nomi
         let taxiCategoryName: string | null = null;
-        if (payment.order.TaxiCategory) {
+        if (payment.order.taxiCategory) {
             taxiCategoryName =
-                language === 'uz' ? payment.order.TaxiCategory.name_uz :
-                    language === 'ru' ? payment.order.TaxiCategory.name_ru :
-                        language === 'en' ? payment.order.TaxiCategory.name_en :
-                            payment.order.TaxiCategory.name_uz;
+                language === 'uz' ? payment.order.taxiCategory.name_uz :
+                    language === 'ru' ? payment.order.taxiCategory.name_ru :
+                        language === 'en' ? payment.order.taxiCategory.name_en :
+                            payment.order.taxiCategory.name_uz;
         }
 
         return {

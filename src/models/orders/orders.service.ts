@@ -6,7 +6,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, PaymentMethod, Prisma, PrismaClient } from '@prisma/client';
+import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/config/database/database.service';
 import { Language } from 'src/utils/helper';
 import { SocketGateway } from '../socket/socket.gateway';
@@ -358,16 +358,16 @@ export class OrdersService {
         allowedFields.forEach(field => {
             if (dto[field] !== undefined) {
                 if (['start_lat', 'start_lng', 'end_lat', 'end_lng'].includes(field)) {
-                    updateData[field] = new PrismaClient.Decimal(dto[field]);
+                    updateData[field] = new Prisma.Decimal(dto[field]);
                 } else {
                     updateData[field] = dto[field];
                 }
             }
         });
 
-        updateData.price = new PrismaClient.Decimal(finalPrice);
-        updateData.distance_km = new PrismaClient.Decimal(distanceKm);
-        updateData.duration_min = new PrismaClient.Decimal(estimatedTime);
+        updateData.price = new Prisma.Decimal(finalPrice);
+        updateData.distance_km = new Prisma.Decimal(distanceKm);
+        updateData.duration_min = new Prisma.Decimal(estimatedTime);
         updateData.updated_at = new Date();
 
         // 🟢 6. Bazada yangilash
@@ -380,7 +380,7 @@ export class OrdersService {
         await this.prisma.payment.updateMany({
             where: { order_id: orderId },
             data: {
-                amount: new PrismaClient.Decimal(finalPrice),
+                amount: new Prisma.Decimal(finalPrice),
                 method: dto.payment_method ?? (order.payment as any)?.method ?? 'cash',
                 status: 'pending',
             },
@@ -445,8 +445,8 @@ export class OrdersService {
 
         if (price_min !== undefined || price_max !== undefined) {
             whereClause.price = {};
-            if (price_min !== undefined) whereClause.price.gte = new PrismaClient.Decimal(price_min);
-            if (price_max !== undefined) whereClause.price.lte = new PrismaClient.Decimal(price_max);
+            if (price_min !== undefined) whereClause.price.gte = new Prisma.Decimal(price_min);
+            if (price_max !== undefined) whereClause.price.lte = new Prisma.Decimal(price_max);
         }
 
         if (status) whereClause.status = status;
@@ -468,12 +468,12 @@ export class OrdersService {
                 driver: {
                     include: { user: true },
                 },
-                TaxiCategory: true,
+                taxiCategory: true,
                 payment: true,
                 fare: true,
                 reviews: { include: { from: true, to: true } },
                 driverLocations: true,
-                UserLocation: true,
+                userLocations: true,
                 chats: {
                     include: {
                         participants: true,
@@ -517,12 +517,12 @@ export class OrdersService {
             }
 
             let categoryName: string | null = null;
-            if (order.TaxiCategory) {
+            if (order.taxiCategory) {
                 categoryName =
-                    lang === 'uz' ? order.TaxiCategory.name_uz :
-                        lang === 'ru' ? order.TaxiCategory.name_ru :
-                            lang === 'en' ? order.TaxiCategory.name_en :
-                                order.TaxiCategory.name_uz;
+                    lang === 'uz' ? order.taxiCategory.name_uz :
+                        lang === 'ru' ? order.taxiCategory.name_ru :
+                            lang === 'en' ? order.taxiCategory.name_en :
+                                order.taxiCategory.name_uz;
             }
 
 
@@ -566,9 +566,9 @@ export class OrdersService {
                         car_color: carColor,
                     }
                     : null,
-                TaxiCategory: order.TaxiCategory
+                taxiCategory: order.taxiCategory
                     ? {
-                        ...order.TaxiCategory,
+                        ...order.taxiCategory,
                         name: categoryName,
                     }
                     : null,
@@ -594,12 +594,12 @@ export class OrdersService {
             include: {
                 user: true,
                 driver: { include: { user: true } },
-                TaxiCategory: true,
+                taxiCategory: true,
                 payment: true,
                 fare: true,
                 reviews: { include: { from: true, to: true } },
                 driverLocations: true,
-                UserLocation: true,
+                userLocations: true,
                 chats: { include: { participants: true, messages: true } },
             },
         });
@@ -641,12 +641,12 @@ export class OrdersService {
         }
 
         let categoryName: string | null = null;
-        if (order.TaxiCategory) {
+        if (order.taxiCategory) {
             categoryName =
-                lang === 'uz' ? order.TaxiCategory.name_uz :
-                    lang === 'ru' ? order.TaxiCategory.name_ru :
-                        lang === 'en' ? order.TaxiCategory.name_en :
-                            order.TaxiCategory.name_uz;
+                lang === 'uz' ? order.taxiCategory.name_uz :
+                    lang === 'ru' ? order.taxiCategory.name_ru :
+                        lang === 'en' ? order.taxiCategory.name_en :
+                            order.taxiCategory.name_uz;
         }
 
         const reviews = order.reviews.map(r => {
@@ -690,8 +690,8 @@ export class OrdersService {
                         car_color: carColor,
                     }
                     : null,
-                TaxiCategory: order.TaxiCategory
-                    ? { ...order.TaxiCategory, name: categoryName }
+                taxiCategory: order.taxiCategory
+                    ? { ...order.taxiCategory, name: categoryName }
                     : null,
                 reviews,
             },

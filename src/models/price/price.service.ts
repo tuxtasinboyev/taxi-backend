@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/config/database/database.service';
 import { CreatePricingRuleDto } from './dto/create.priceRule.dto';
-import { console } from 'inspector';
 import { UpdatePricingRuleDto } from './dto/update.priceRule.dto';
 
 @Injectable()
@@ -75,14 +74,14 @@ export class PriceService {
     async getActivePriceRule() {
         const activeRule = await this.prisma.pricingRule.findFirst({
             where: { is_active: true },
-            include: { TaxiCategory: true },
+            include: { taxiCategory: true },
             orderBy: { updated_at: 'desc' }
         })
         return activeRule
     }
     async getAllPriceRules() {
         const allRules = await this.prisma.pricingRule.findMany({
-            include: { TaxiCategory: true },
+            include: { taxiCategory: true },
             orderBy: { created_at: 'desc' }
         })
         return allRules
@@ -90,7 +89,7 @@ export class PriceService {
     async getPriceRuleById(id: string) {
         const rule = await this.prisma.pricingRule.findUnique({
             where: { id },
-            include: { TaxiCategory: true }
+            include: { taxiCategory: true }
         })
         if (!rule) throw new NotFoundException('Pricing rule not found')
         return rule
@@ -98,7 +97,6 @@ export class PriceService {
     async updatePriceRule(id: string, dto: UpdatePricingRuleDto) {
         const existingRule = await this.prisma.pricingRule.findUnique({ where: { id } });
         if (!existingRule) throw new NotFoundException('Pricing rule not found');
-        console.log('salomss');
 
         // 🔹 Taxi category borligin itekshiramiz (agar yangisi berilgan bo‘lsa)
         if (dto.taxiCategoryId) {

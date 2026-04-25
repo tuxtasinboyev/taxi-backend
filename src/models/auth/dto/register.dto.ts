@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, Length, IsEmpty, IsEnum } from "class-validator";
+import { IsString, IsNotEmpty, Length, IsEnum } from "class-validator";
 import { Language } from "src/utils/helper";
 
 export class SendOtpDto {
@@ -24,7 +24,6 @@ export class RegisterAuthDto {
     @IsNotEmpty()
     @Length(9, 13)
     phone: string;
-
 
     @ApiProperty({ example: '123456' })
     @IsString()
