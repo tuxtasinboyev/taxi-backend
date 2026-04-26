@@ -144,6 +144,33 @@ export class LocationController {
     @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
+    @Get('active-drivers')
+    @ApiOperation({ summary: 'Admin: Redis dan barcha aktiv haydovchilar (xarita uchun)' })
+    @ApiResponse({
+        status: 200,
+        schema: {
+            example: [
+                {
+                    driverId: 'uuid-driver-id',
+                    lat: 41.2995,
+                    lng: 69.2401,
+                    name: 'Bobur Karimov',
+                    phone: '+998901234567',
+                    status: 'available',
+                    carModel: 'Chevrolet Nexia',
+                    carNumber: '01A111AA',
+                    lastSeenAt: '2026-04-26T10:00:00.000Z',
+                },
+            ],
+        },
+    })
+    async getActiveDrivers() {
+        return this.locationService.getActiveDriversWithLocations();
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
+    @ApiBearerAuth()
     @Get('all-locations')
     @ApiOperation({ summary: 'Get all driver and passenger locations' })
     @ApiResponse({

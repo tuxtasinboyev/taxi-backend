@@ -9,9 +9,10 @@ import { PromocodeModule } from './promocode/promocode.module';
 import { PaymentModule } from './payment/payment.module';
 import { ChatModule } from './chat/chat.module';
 import { ReviewModule } from './review/review.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, OrdersModule, PriceModule,LocationModule, PromocodeModule, PaymentModule, ChatModule, ReviewModule],
+  imports: [AuthModule, UsersModule, OrdersModule, PriceModule, LocationModule, PromocodeModule, PaymentModule, ChatModule, ReviewModule, DashboardModule],
   providers: [SocketGateway],
   exports: [SocketGateway],
 })

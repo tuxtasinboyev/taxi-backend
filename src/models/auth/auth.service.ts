@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from "bcrypt";
 import { DatabaseService } from 'src/config/database/database.service';
@@ -199,6 +199,39 @@ export class AuthService {
         if (!isMatch) throw new BadRequestException('phone or password xato');
 
         return this.generateTokens(user);
+    }
+
+    async refreshAccessToken(refreshToken: string) {
+        let payload: { id: string };
+        try {
+            payload = await this.jwt.verifyRefreshToken(refreshToken);
+        } catch {
+            throw new UnauthorizedException('Refresh token yaroqsiz yoki muddati tugagan');
+        }
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: payload.id },
+            include: {
+                wallet: { select: { balance: true } },
+                cards: true,
+            },
+        });
+
+        if (!user) throw new UnauthorizedException('Foydalanuvchi topilmadi');
+
+        const [accessToken, newRefreshToken] = await Promise.all([
+            this.jwt.generateAccessToken(user),
+            this.jwt.generateRefreshToken(user),
+        ]);
+
+        const { password_hash, ...safeUser } = user;
+
+        return {
+            success: true,
+            user: safeUser,
+            accessToken,
+            refreshToken: newRefreshToken,
+        };
     }
 
     async resetPassword(payload: { phone: string; password: string }) {

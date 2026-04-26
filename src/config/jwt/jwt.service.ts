@@ -60,4 +60,9 @@ export class JwtServices {
             expiresIn,
         );
     }
+
+    async verifyRefreshToken(token: string): Promise<JwtPayload> {
+        const secret = this.config.get<string>('JWT_REFRESH_TOKEN_SECRET', 'refresh_default_secret');
+        return this.jwt.verifyAsync<JwtPayload>(token, { secret });
+    }
 }

@@ -79,6 +79,16 @@ export class CategoryController {
         return this.categoryService.getAllTaxiCategories(language);
     }
 
+
+
+    @Get("arxive")
+    @ApiOperation({ summary: 'Get all arxive taxi categories' })
+    @ApiQuery({ name: 'language', enum: Language, required: false })
+    @ApiResponse({ status: 200, description: 'List of categories' })
+    async getAllTaxiCategoriesArxive(@Query('language') language?: Language) {
+        return this.categoryService.getAllTaxiCategoriesArxive(language);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get taxi category by ID' })
     @ApiParam({ name: 'id', description: 'Category UUID' })

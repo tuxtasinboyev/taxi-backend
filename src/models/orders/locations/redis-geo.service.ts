@@ -17,6 +17,30 @@ export class RedisGeoService {
         await redis.zrem(this.GEO_KEY, driverId);
     }
 
+    async getAllDrivers(): Promise<{ driverId: string; lat: number; lng: number }[]> {
+        const redis = this.redisService['redis_client'];
+        try {
+            const members = await redis.zrange(this.GEO_KEY, 0, -1) as string[];
+            if (!members || members.length === 0) return [];
+
+            const result: { driverId: string; lat: number; lng: number }[] = [];
+            for (const member of members) {
+                const pos = await redis.geopos(this.GEO_KEY, member) as [[string, string] | null];
+                if (pos && pos[0]) {
+                    result.push({
+                        driverId: member,
+                        lng: parseFloat(pos[0][0]),
+                        lat: parseFloat(pos[0][1]),
+                    });
+                }
+            }
+            return result;
+        } catch (error) {
+            console.error('Redis getAllDrivers error:', error.message);
+            return [];
+        }
+    }
+
     async getNearbyDrivers(lat: number, lng: number, radiusKm = 3) {
         const redis = this.redisService['redis_client'];
 

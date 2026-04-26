@@ -8,146 +8,194 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CategoryService {
-    constructor(
-        private prisma: DatabaseService,
-        private configService: ConfigService,
-    ) { }
+  constructor(
+    private prisma: DatabaseService,
+    private configService: ConfigService,
+  ) {}
 
-    async createTaxiCategory(data: CreateTaxiCategoryDto, iconUrl: string) {
-        const photoUrl = urlGenerator(this.configService, iconUrl);
+  async createTaxiCategory(data: CreateTaxiCategoryDto, iconUrl: string) {
+    const photoUrl = urlGenerator(this.configService, iconUrl);
 
-        let existsCategory;
+    let existsCategory;
 
-        if (data.language === Language.uz) {
-            existsCategory = await this.prisma.taxiCategory.findUnique({
-                where: { name_uz: data.name },
-            });
-        } else if (data.language === Language.en) {
-            existsCategory = await this.prisma.taxiCategory.findUnique({
-                where: { name_en: data.name },
-            });
-        } else if (data.language === Language.ru) {
-            existsCategory = await this.prisma.taxiCategory.findUnique({
-                where: { name_ru: data.name },
-            });
-        }
-
-        if (existsCategory) throw new ConflictException('This category already exists');
-
-        const created = await this.prisma.taxiCategory.create({
-            data: {
-                name_uz: data.language === Language.uz ? data.name : null,
-                name_en: data.language === Language.en ? data.name : null,
-                name_ru: data.language === Language.ru ? data.name : null,
-                icon_url: photoUrl,
-                is_active: data.is_active ?? true,
-                price: Prisma.Decimal(data.price),
-            },
-        });
-
-        return { data: created };
+    if (data.language === Language.uz) {
+      existsCategory = await this.prisma.taxiCategory.findUnique({
+        where: { name_uz: data.name },
+      });
+    } else if (data.language === Language.en) {
+      existsCategory = await this.prisma.taxiCategory.findUnique({
+        where: { name_en: data.name },
+      });
+    } else if (data.language === Language.ru) {
+      existsCategory = await this.prisma.taxiCategory.findUnique({
+        where: { name_ru: data.name },
+      });
     }
 
+    if (existsCategory)
+      throw new ConflictException('This category already exists');
 
-    async getAllTaxiCategories(language?: Language) {
-        const baseSelect = {
-            id: true,
-            icon_url: true,
-            price: true,
-            is_active: true,
-            created_at: true,
-        };
+    const created = await this.prisma.taxiCategory.create({
+      data: {
+        name_uz: data.language === Language.uz ? data.name : null,
+        name_en: data.language === Language.en ? data.name : null,
+        name_ru: data.language === Language.ru ? data.name : null,
+        icon_url: photoUrl,
+        is_active: data.is_active ?? true,
+        price: Prisma.Decimal(data.price),
+      },
+    });
 
-        if (language) {
-            const fieldName =
-                language === Language.uz
-                    ? 'name_uz'
-                    : language === Language.en
-                        ? 'name_en'
-                        : 'name_ru';
+    return { data: created };
+  }
 
-            const categories = await this.prisma.taxiCategory.findMany({
-                where: { is_active: true },
-                select: { ...baseSelect, [fieldName]: true },
-            });
+  async getAllTaxiCategories(language?: Language) {
+    const baseSelect = {
+      id: true,
+      icon_url: true,
+      price: true,
+      is_active: true,
+      created_at: true,
+    };
 
-            return {
-                data: categories.map(cat => ({
-                    id: cat.id,
-                    name: cat[fieldName],
-                    icon_url: cat.icon_url,
-                    price: cat.price,
-                    is_active: cat.is_active,
-                    created_at: cat.created_at,
-                })),
-            };
-        }
+    if (language) {
+      const fieldName =
+        language === Language.uz
+          ? 'name_uz'
+          : language === Language.en
+            ? 'name_en'
+            : 'name_ru';
 
-        const categories = await this.prisma.taxiCategory.findMany({
-            where: { is_active: true },
-            select: {
-                ...baseSelect,
-                name_uz: true,
-                name_en: true,
-                name_ru: true,
-            },
-        });
-        return { data: categories };
+      const categories = await this.prisma.taxiCategory.findMany({
+        where: { is_active: true },
+        select: { ...baseSelect, [fieldName]: true },
+      });
+
+      return {
+        data: categories.map((cat) => ({
+          id: cat.id,
+          name: cat[fieldName],
+          icon_url: cat.icon_url,
+          price: cat.price,
+          is_active: cat.is_active,
+          created_at: cat.created_at,
+        })),
+      };
     }
 
-    async getTaxiCategoryById(id: string) {
-        const category = await this.prisma.taxiCategory.findUnique({ where: { id } });
-        if (!category) throw new ConflictException('Category not found');
-        return { data: category };
+    const categories = await this.prisma.taxiCategory.findMany({
+      where: { is_active: true },
+      select: {
+        ...baseSelect,
+        name_uz: true,
+        name_en: true,
+        name_ru: true,
+      },
+    });
+    return { data: categories };
+  }
+
+  async getAllTaxiCategoriesArxive(language?: Language) {
+    const baseSelect = {
+      id: true,
+      icon_url: true,
+      price: true,
+      is_active: false,
+      created_at: true,
+    };
+
+    if (language) {
+      const fieldName =
+        language === Language.uz
+          ? 'name_uz'
+          : language === Language.en
+            ? 'name_en'
+            : 'name_ru';
+
+      const categories = await this.prisma.taxiCategory.findMany({
+        where: { is_active: false },
+        select: { ...baseSelect, [fieldName]: true },
+      });
+
+      return {
+        data: categories.map((cat) => ({
+          id: cat.id,
+          name: cat[fieldName],
+          icon_url: cat.icon_url,
+          price: cat.price,
+          is_active: cat.is_active,
+          created_at: cat.created_at,
+        })),
+      };
     }
 
-    async updateTaxiCategory(
-        id: string,
-        data: Partial<CreateTaxiCategoryDto>,
-        iconUrl?: string
-    ) {
-        const exists = await this.prisma.taxiCategory.findUnique({ where: { id } });
-        if (!exists) throw new ConflictException('Category not found');
+    const categories = await this.prisma.taxiCategory.findMany({
+      where: { is_active: false },
+      select: {
+        ...baseSelect,
+        name_uz: true,
+        name_en: true,
+        name_ru: true,
+      },
+    });
+    return { data: categories };
+  }
 
-        const photoUrl = iconUrl
-            ? urlGenerator(this.configService, iconUrl)
-            : exists.icon_url;
+  async getTaxiCategoryById(id: string) {
+    const category = await this.prisma.taxiCategory.findUnique({
+      where: { id },
+    });
+    if (!category) throw new ConflictException('Category not found');
+    return { data: category };
+  }
 
-        const fieldName =
-            data.language === Language.uz
-                ? 'name_uz'
-                : data.language === Language.en
-                    ? 'name_en'
-                    : data.language === Language.ru
-                        ? 'name_ru'
-                        : null;
+  async updateTaxiCategory(
+    id: string,
+    data: Partial<CreateTaxiCategoryDto>,
+    iconUrl?: string,
+  ) {
+    const exists = await this.prisma.taxiCategory.findUnique({ where: { id } });
+    if (!exists) throw new ConflictException('Category not found');
 
-        const updateData: any = {};
+    const photoUrl = iconUrl
+      ? urlGenerator(this.configService, iconUrl)
+      : exists.icon_url;
 
-        // faqat kiritilgan maydonlarni qo‘shamiz:
-        if (photoUrl && photoUrl !== exists.icon_url) updateData.icon_url = photoUrl;
-        if (data.is_active !== undefined) updateData.is_active = data.is_active;
-        if (data.price !== undefined) updateData.price = data.price;
+    const fieldName =
+      data.language === Language.uz
+        ? 'name_uz'
+        : data.language === Language.en
+          ? 'name_en'
+          : data.language === Language.ru
+            ? 'name_ru'
+            : null;
 
-        // agar name kiritilgan bo‘lsa, shunda yozamiz
-        if (fieldName && data.name) {
-            updateData[fieldName] = data.name;
-        }
+    const updateData: any = {};
 
-        const updated = await this.prisma.taxiCategory.update({
-            where: { id },
-            data: updateData,
-        });
+    // faqat kiritilgan maydonlarni qo‘shamiz:
+    if (photoUrl && photoUrl !== exists.icon_url)
+      updateData.icon_url = photoUrl;
+    if (data.is_active !== undefined) updateData.is_active = data.is_active;
+    if (data.price !== undefined) updateData.price = data.price;
 
-        return { data: updated };
+    // agar name kiritilgan bo‘lsa, shunda yozamiz
+    if (fieldName && data.name) {
+      updateData[fieldName] = data.name;
     }
 
+    const updated = await this.prisma.taxiCategory.update({
+      where: { id },
+      data: updateData,
+    });
 
-    async deleteTaxiCategory(id: string) {
-        const exists = await this.prisma.taxiCategory.findUnique({ where: { id } });
-        if (!exists) throw new ConflictException('Category not found');
+    return { data: updated };
+  }
 
-        await this.prisma.taxiCategory.delete({ where: { id } });
-        return { message: 'Category deleted successfully' };
-    }
+  async deleteTaxiCategory(id: string) {
+    const exists = await this.prisma.taxiCategory.findUnique({ where: { id } });
+    if (!exists) throw new ConflictException('Category not found');
+
+    await this.prisma.taxiCategory.delete({ where: { id } });
+    return { message: 'Category deleted successfully' };
+  }
 }
