@@ -138,6 +138,187 @@ export class OrdersService {
         return { order, drivers: nearbyDrivers, promoApplied, appliedPromo };
     }
 
+    // Narx hisoblash — order yaratmasdan oldin preview
+    async pricePreview(dto: {
+        start_lat: number;
+        start_lng: number;
+        end_lat: number;
+        end_lng: number;
+        taxiCategoryId?: string;
+        promoCode?: string;
+    }) {
+        const rule = await this.prisma.pricingRule.findFirst({
+            where: { is_active: true },
+            orderBy: { updated_at: 'desc' },
+        });
+        if (!rule) throw new NotFoundException('No active pricing rule found');
+
+        const distanceKm = this.calcDistanceKm(dto.start_lat, dto.start_lng, dto.end_lat, dto.end_lng);
+        const estimatedTime = distanceKm * 2;
+
+        let categoryPrice = 0;
+        let categoryName: string | null = null;
+        if (dto.taxiCategoryId) {
+            const category = await this.prisma.taxiCategory.findUnique({
+                where: { id: dto.taxiCategoryId, is_active: true },
+            });
+            if (!category) throw new NotFoundException('Taxi category not found or inactive');
+            categoryPrice = Number(category.price) || 0;
+            categoryName = category.name_uz || category.name_ru || null;
+        }
+
+        const baseTotal =
+            Number(rule.base_fare) +
+            Number(rule.per_km) * distanceKm +
+            Number(rule.per_min) * estimatedTime +
+            categoryPrice;
+
+        let finalPrice = baseTotal * Number(rule.surge_multiplier);
+        let discountAmount = 0;
+        let promoApplied = false;
+
+        if (dto.promoCode) {
+            const promo = await this.prisma.promoCode.findFirst({
+                where: {
+                    code: dto.promoCode,
+                    is_active: true,
+                    valid_from: { lte: new Date() },
+                    OR: [{ valid_to: null }, { valid_to: { gte: new Date() } }],
+                },
+            });
+            if (promo) {
+                discountAmount = (finalPrice * promo.discount_percent) / 100;
+                finalPrice = Math.max(0, finalPrice - discountAmount);
+                promoApplied = true;
+            }
+        }
+
+        return {
+            distanceKm: +distanceKm.toFixed(2),
+            estimatedMinutes: +estimatedTime.toFixed(0),
+            breakdown: {
+                baseFare: Number(rule.base_fare),
+                perKmCharge: +(Number(rule.per_km) * distanceKm).toFixed(0),
+                perMinCharge: +(Number(rule.per_min) * estimatedTime).toFixed(0),
+                categoryCharge: categoryPrice,
+                surgeMultiplier: Number(rule.surge_multiplier),
+                discount: +discountAmount.toFixed(0),
+            },
+            categoryName,
+            promoApplied,
+            finalPrice: +finalPrice.toFixed(0),
+            currency: rule.currency,
+        };
+    }
+
+    // Admin tomonidan order yaratish (istalgan user uchun)
+    async adminCreateOrder(dto: {
+        user_id: string;
+        start_lat: number;
+        start_lng: number;
+        end_lat: number;
+        end_lng: number;
+        taxiCategoryId?: string;
+        promoCode?: string;
+        payment_method?: PaymentMethod;
+        driver_id?: string;
+    }) {
+        const result = await this.createOrder(dto);
+
+        if (dto.driver_id) {
+            await this.assignDriver(result.order.id, dto.driver_id);
+        }
+
+        return result;
+    }
+
+    // Admin haydovchini order ga biriktiradi
+    async assignDriver(orderId: string, driverId: string) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
+
+        if (!['pending', 'accepted'].includes(order.status)) {
+            throw new BadRequestException('Faqat pending yoki accepted orderlarga haydovchi biriktiriladi');
+        }
+
+        const driver = await this.prisma.driver.findUnique({ where: { id: driverId } });
+        if (!driver) throw new NotFoundException('Driver not found');
+
+        const updatedOrder = await this.prisma.order.update({
+            where: { id: orderId },
+            data: { driver_id: driverId, status: 'accepted' },
+            include: {
+                user: { select: { id: true, name_uz: true, phone: true } },
+                driver: {
+                    include: { user: { select: { id: true, name_uz: true, phone: true } } },
+                },
+            },
+        });
+
+        // Haydovchiga xabar yuborish
+        this.socketGateway.emitToDriver(driverId, 'order:assigned', {
+            order_id: orderId,
+            message: 'Admin sizga buyurtma biriktirdi',
+            price: Number(updatedOrder.price),
+        });
+
+        // Yo'lovchiga xabar yuborish
+        this.socketGateway.emitToUser(order.user_id, 'order:accepted', {
+            order_id: orderId,
+            driver_id: driverId,
+            message: 'Haydovchi tayinlandi',
+        });
+
+        // Boshqa haydovchilarga bekor xabari
+        this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
+
+        this.logger.log(`Admin assigned driver ${driverId} to order ${orderId}`);
+        return updatedOrder;
+    }
+
+    // Order uchun yaqin haydovchilarni topish (admin panelda)
+    async getNearbyDriversForOrder(orderId: string, radiusKm = 5) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
+
+        const nearby = await this.redisGeo.getNearbyDrivers(
+            Number(order.start_lat),
+            Number(order.start_lng),
+            radiusKm,
+        );
+
+        if (!nearby.length) return [];
+
+        const driverIds = nearby.map(d => d.driverId);
+        const drivers = await this.prisma.driver.findMany({
+            where: { id: { in: driverIds } },
+            select: {
+                id: true,
+                status: true,
+                car_model_uz: true,
+                car_number: true,
+                rating: true,
+                user: { select: { name_uz: true, name_ru: true, phone: true } },
+            },
+        });
+
+        const driverMap = new Map(drivers.map(d => [d.id, d]));
+
+        return nearby.map(n => {
+            const info = driverMap.get(n.driverId);
+            return {
+                driverId: n.driverId,
+                distanceKm: n.distanceKm,
+                name: info?.user?.name_uz || info?.user?.name_ru || null,
+                phone: info?.user?.phone || null,
+                carModel: info?.car_model_uz || null,
+                carNumber: info?.car_number || null,
+                rating: info?.rating ? Number(info.rating) : null,
+                status: info?.status || null,
+            };
+        });
+    }
+
     async acceptOrder(driverId: string, orderId: string) {
         const driver = await this.prisma.user.findUnique({ where: { id: driverId } });
         if (!driver) throw new NotFoundException('Driver not found');
@@ -227,6 +408,7 @@ export class OrdersService {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
+    
     async updateOrderStatus(orderId: string, status: OrderStatus) {
         const order = await this.prisma.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException('Order not found');

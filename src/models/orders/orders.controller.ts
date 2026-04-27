@@ -57,6 +57,83 @@ class UpdateStatusDto {
 export class OrdersController {
     constructor(private readonly ordersService: OrdersService) { }
 
+    // Narx hisoblash (order yaratmasdan oldin)
+    @UseGuards(GuardService)
+    @Post('price-preview')
+    @ApiOperation({ summary: 'Order narxini oldindan hisoblash (order yaratilmaydi)' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['start_lat', 'start_lng', 'end_lat', 'end_lng'],
+            properties: {
+                start_lat: { type: 'number', example: 41.2995 },
+                start_lng: { type: 'number', example: 69.2401 },
+                end_lat: { type: 'number', example: 41.3110 },
+                end_lng: { type: 'number', example: 69.2790 },
+                taxiCategoryId: { type: 'string', example: 'uuid-category' },
+                promoCode: { type: 'string', example: 'DISCOUNT20' },
+            },
+        },
+    })
+    async pricePreview(@Body() dto: CreateOrderDto) {
+        return this.ordersService.pricePreview(dto);
+    }
+
+    // Admin: order yaratish (istalgan user uchun, haydovchi biriktirib ham bo'ladi)
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
+    @Post('admin-create')
+    @ApiOperation({ summary: 'Admin: istalgan user uchun order yaratish' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['user_id', 'start_lat', 'start_lng', 'end_lat', 'end_lng'],
+            properties: {
+                user_id: { type: 'string', example: 'uuid-user' },
+                start_lat: { type: 'number', example: 41.2995 },
+                start_lng: { type: 'number', example: 69.2401 },
+                end_lat: { type: 'number', example: 41.3110 },
+                end_lng: { type: 'number', example: 69.2790 },
+                taxiCategoryId: { type: 'string', example: 'uuid-category' },
+                promoCode: { type: 'string', example: 'DISCOUNT20' },
+                payment_method: { type: 'string', enum: ['cash', 'card'], example: 'cash' },
+                driver_id: { type: 'string', example: 'uuid-driver', description: 'Darhol biriktiriladi (ixtiyoriy)' },
+            },
+        },
+    })
+    async adminCreateOrder(@Body() dto: CreateOrderDto & { driver_id?: string }) {
+        const result = await this.ordersService.adminCreateOrder(dto);
+        return { success: true, message: 'Admin tomonidan order yaratildi', data: result };
+    }
+
+    // Admin: order ga haydovchi biriktirish
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
+    @Patch(':id/assign-driver/:driverId')
+    @ApiOperation({ summary: 'Admin: orderga haydovchi biriktirish' })
+    @ApiParam({ name: 'id', description: 'Order ID' })
+    @ApiParam({ name: 'driverId', description: 'Driver ID' })
+    async assignDriver(@Param('id') orderId: string, @Param('driverId') driverId: string) {
+        const result = await this.ordersService.assignDriver(orderId, driverId);
+        return { success: true, message: 'Haydovchi biriktirildi', data: result };
+    }
+
+    // Admin: order uchun yaqin haydovchilar
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
+    @Get(':id/nearby-drivers')
+    @ApiOperation({ summary: 'Admin: order start nuqtasiga yaqin haydovchilar' })
+    @ApiParam({ name: 'id', description: 'Order ID' })
+    @ApiQuery({ name: 'radiusKm', required: false, type: Number, example: 5 })
+    async getNearbyDriversForOrder(
+        @Param('id') orderId: string,
+        @Query('radiusKm') radiusKm?: string,
+    ) {
+        const radius = radiusKm ? parseFloat(radiusKm) : 5;
+        const drivers = await this.ordersService.getNearbyDriversForOrder(orderId, radius);
+        return { success: true, data: drivers };
+    }
+
     // 🟢 1. Order yaratish
     @UseGuards(GuardService)
     @Post('create')
