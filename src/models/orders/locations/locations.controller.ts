@@ -16,7 +16,7 @@ import { Role } from 'src/common/decorators/role.decorator';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 
 @ApiTags('Location Service') // 📘 Swaggerda bo‘lim nomi
-@Controller('api/location')
+@Controller('location')
 export class LocationController {
     constructor(private readonly locationService: LocationService) { }
 
