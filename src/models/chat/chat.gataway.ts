@@ -15,10 +15,7 @@ import { SocketMessageDto, SocketTypingDto } from './dto/chat.dto';
 import { Language } from 'src/utils/helper';
 
 @WebSocketGateway({
-    cors: {
-        origin: '*', // Production uchun o'zgartiring
-        credentials: true,
-    },
+    cors: { origin: '*', credentials: true },
     namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -30,210 +27,221 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     constructor(
         private readonly sessionManager: SessionManager,
         private readonly chatService: ChatService,
-    ) { }
+    ) {}
 
     afterInit() {
         this.sessionManager.setServer(this.server);
         this.logger.log('🚀 Chat Gateway initialized');
     }
 
-    /**
-     * Client ulanganda
-     */
     async handleConnection(client: Socket) {
         try {
-            const userId = client.handshake.auth.userId || client.handshake.query.userId;
-            const deviceId = client.handshake.auth.deviceId || client.handshake.query.deviceId || 'default';
+            const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
+            const deviceId = (client.handshake.auth.deviceId || client.handshake.query.deviceId || 'default') as string;
 
             if (!userId) {
-                this.logger.warn(`❌ Unauthorized connection attempt: ${client.id}`);
+                client.emit('error', { message: 'userId talab qilinadi' });
                 client.disconnect();
                 return;
             }
 
-            // Session manager orqali ulanishni ro'yxatga olish
-            this.sessionManager.registerConnection(userId as string, deviceId as string, client.id);
+            this.sessionManager.registerConnection(userId, deviceId, client.id);
 
-            // Clientga ulanish tasdiqlash
+            // Foydalanuvchi ishtirok etayotgan barcha chatlarga avtomatik qo'shish
+            const chatIds = await this.chatService.getUserChatIds(userId);
+            chatIds.forEach(chatId => client.join(`chat:${chatId}`));
+
             client.emit('connected', {
-                message: 'Chat serverga muvaffaqiyatli ulandi',
+                message: 'Chat serverga ulandi',
                 userId,
-                deviceId,
                 socketId: client.id,
+                joined_chats: chatIds.length,
             });
 
-            this.logger.log(`✅ Client connected: ${userId} (${deviceId}) -> ${client.id}`);
+            this.logger.log(`✅ User ${userId} connected, joined ${chatIds.length} chats`);
         } catch (error) {
             this.logger.error('Connection error:', error);
             client.disconnect();
         }
     }
 
-    /**
-     * Client uzilganda
-     */
     handleDisconnect(client: Socket) {
-        const userId = client.handshake.auth.userId || client.handshake.query.userId;
-        const deviceId = client.handshake.auth.deviceId || client.handshake.query.deviceId || 'default';
+        const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
+        const deviceId = (client.handshake.auth.deviceId || client.handshake.query.deviceId || 'default') as string;
 
         if (userId) {
-            this.sessionManager.unregisterConnection(userId as string, deviceId as string, client.id);
-            this.logger.log(`❌ Client disconnected: ${userId} (${deviceId}) -> ${client.id}`);
+            this.sessionManager.unregisterConnection(userId, deviceId, client.id);
+            this.logger.log(`❌ User ${userId} disconnected`);
         }
     }
 
-    /**
-     * Chatga qo'shilish (room join)
-     */
+    // ─── Join / Leave ─────────────────────────────────────────────────────────
+
     @SubscribeMessage('join_chat')
     async handleJoinChat(
-        @MessageBody() data: { chat_id: string; user_id: string; device_id?: string },
+        @MessageBody() data: { chat_id: string; device_id?: string },
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const { chat_id, user_id, device_id = 'default' } = data;
-
-            // Chatni tekshirish va ruxsat
+            const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
+            const deviceId = data.device_id || 'default';
             const language = (client.handshake.query.language as Language) || Language.uz;
-            const chat = await this.chatService.getChat(chat_id, user_id, language);
 
-            // Foydalanuvchini chat room ga qo'shish
-            this.sessionManager.joinRoom(user_id, device_id, `chat:${chat_id}`);
+            const chat = await this.chatService.getChat(data.chat_id, userId, language);
 
-            client.emit('joined_chat', {
-                success: true,
-                chat_id,
-                message: 'Chatga muvaffaqiyatli qo\'shildingiz',
-                chat_info: chat,
-            });
+            this.sessionManager.joinRoom(userId, deviceId, `chat:${data.chat_id}`);
 
-            // Boshqa ishtirokchilarga xabar berish
-            this.sessionManager.emitToRoom(`chat:${chat_id}`, 'user_joined', {
-                user_id,
-                chat_id,
+            client.emit('joined_chat', { success: true, chat_id: data.chat_id, chat_info: chat });
+
+            this.sessionManager.emitToRoom(`chat:${data.chat_id}`, 'user_joined', {
+                user_id: userId,
+                chat_id: data.chat_id,
                 timestamp: new Date(),
             });
-
-            this.logger.log(`👥 User ${user_id} joined chat ${chat_id}`);
         } catch (error) {
-            this.logger.error('Join chat error:', error);
-            client.emit('error', {
-                event: 'join_chat',
-                message: error.message,
-            });
+            client.emit('error', { event: 'join_chat', message: error.message });
         }
     }
 
-    /**
-     * Chatdan chiqish
-     */
     @SubscribeMessage('leave_chat')
-    async handleLeaveChat(
-        @MessageBody() data: { chat_id: string; user_id: string; device_id?: string },
+    handleLeaveChat(
+        @MessageBody() data: { chat_id: string; device_id?: string },
         @ConnectedSocket() client: Socket,
     ) {
-        try {
-            const { chat_id, user_id, device_id = 'default' } = data;
+        const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
+        const deviceId = data.device_id || 'default';
 
-            this.sessionManager.leaveRoom(user_id, device_id, `chat:${chat_id}`);
+        this.sessionManager.leaveRoom(userId, deviceId, `chat:${data.chat_id}`);
+        client.emit('left_chat', { success: true, chat_id: data.chat_id });
 
-            client.emit('left_chat', {
-                success: true,
-                chat_id,
-                message: 'Chatdan chiqdingiz',
-            });
-
-            // Boshqa ishtirokchilarga xabar berish
-            this.sessionManager.emitToRoom(`chat:${chat_id}`, 'user_left', {
-                user_id,
-                chat_id,
-                timestamp: new Date(),
-            });
-
-            this.logger.log(`👤 User ${user_id} left chat ${chat_id}`);
-        } catch (error) {
-            this.logger.error('Leave chat error:', error);
-            client.emit('error', {
-                event: 'leave_chat',
-                message: error.message,
-            });
-        }
+        this.sessionManager.emitToRoom(`chat:${data.chat_id}`, 'user_left', {
+            user_id: userId,
+            chat_id: data.chat_id,
+            timestamp: new Date(),
+        });
     }
 
-    /**
-     * Real-time text xabar yuborish
-     */
+    // ─── Messaging ───────────────────────────────────────────────────────────
+
     @SubscribeMessage('send_message')
     async handleSendMessage(
         @MessageBody() data: SocketMessageDto,
         @ConnectedSocket() client: Socket,
     ) {
         try {
-            const { chat_id, sender_id, message, language } = data;
+            // sender_id body'dan EMAS, socket auth'dan olinadi (xavfsiz)
+            const senderId = client.handshake.auth.userId || client.handshake.query.userId as string;
 
-            // Faqat text xabar yuborish
+            if (!senderId) {
+                client.emit('error', { event: 'send_message', message: 'Autentifikatsiya talab qilinadi' });
+                return;
+            }
+
             const savedMessage = await this.chatService.sendMessage(
-                {
-                    chat_id,
-                    message,
-                    language,
-                },
-                sender_id,
+                { chat_id: data.chat_id, message: data.message, language: data.language },
+                senderId,
             );
 
-            // Chat room ga xabar yuborish (barcha ishtirokchilarga)
-            this.sessionManager.emitToRoom(`chat:${chat_id}`, 'new_message', savedMessage);
+            // Chat room dagi barcha foydalanuvchilarga yangi xabar yuborish
+            this.server.to(`chat:${data.chat_id}`).emit('new_message', savedMessage);
 
             // Jo'natuvchiga tasdiqlash
-            client.emit('message_sent', {
-                success: true,
-                message: savedMessage,
-            });
+            client.emit('message_sent', { success: true, message: savedMessage });
 
-            this.logger.log(`📨 Message sent in chat ${chat_id} by user ${sender_id}`);
+            this.logger.log(`📨 Socket message in chat ${data.chat_id} by ${senderId}`);
         } catch (error) {
-            this.logger.error('Send message error:', error);
-            client.emit('error', {
-                event: 'send_message',
-                message: error.message,
-            });
+            client.emit('error', { event: 'send_message', message: error.message });
         }
     }
 
-    /**
-     * Typing indicator (yozish jarayonini ko'rsatish)
-     */
+    @SubscribeMessage('delete_message')
+    async handleDeleteMessage(
+        @MessageBody() data: { message_id: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        try {
+            const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
+            const result = await this.chatService.deleteMessage(data.message_id, userId);
+
+            // Chatdagi hamma foydalanuvchilarga xabar o'chirildi deb xabar berish
+            this.server.to(`chat:${result.chat_id}`).emit('message_deleted', {
+                message_id: result.message_id,
+                chat_id: result.chat_id,
+            });
+
+            client.emit('message_delete_confirmed', result);
+        } catch (error) {
+            client.emit('error', { event: 'delete_message', message: error.message });
+        }
+    }
+
+    // ─── Read receipts ───────────────────────────────────────────────────────
+
+    @SubscribeMessage('mark_read')
+    async handleMarkRead(
+        @MessageBody() data: { chat_id: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        try {
+            const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
+            const result = await this.chatService.markMessagesAsRead(data.chat_id, userId);
+
+            // Boshqa ishtirokchilarga xabarlar o'qilganligini bildirish
+            this.server.to(`chat:${data.chat_id}`).except(client.id).emit('messages_read', {
+                chat_id: data.chat_id,
+                read_by: userId,
+                timestamp: new Date(),
+            });
+
+            client.emit('mark_read_confirmed', result);
+        } catch (error) {
+            client.emit('error', { event: 'mark_read', message: error.message });
+        }
+    }
+
+    // ─── Typing ──────────────────────────────────────────────────────────────
+
     @SubscribeMessage('typing')
     handleTyping(
         @MessageBody() data: SocketTypingDto,
         @ConnectedSocket() client: Socket,
     ) {
-        try {
-            const { chat_id, user_id, is_typing } = data;
+        const userId = client.handshake.auth.userId || client.handshake.query.userId as string;
 
-            // Boshqa ishtirokchilarga typing xabarini yuborish
-            this.server.to(`chat:${chat_id}`).except(client.id).emit('user_typing', {
-                chat_id,
-                user_id,
-                is_typing,
-                timestamp: new Date(),
-            });
-
-            this.logger.debug(`⌨️  User ${user_id} is ${is_typing ? 'typing' : 'stopped typing'} in chat ${chat_id}`);
-        } catch (error) {
-            this.logger.error('Typing indicator error:', error);
-        }
+        client.to(`chat:${data.chat_id}`).emit('user_typing', {
+            chat_id: data.chat_id,
+            user_id: userId,
+            is_typing: data.is_typing,
+            timestamp: new Date(),
+        });
     }
 
-    /**
-     * Online foydalanuvchilar ro'yxati
-     */
+    // ─── Online users ────────────────────────────────────────────────────────
+
     @SubscribeMessage('get_online_users')
     handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
         const onlineUsers = this.sessionManager.getAllOnlineUsers();
-        client.emit('online_users', {
-            users: onlineUsers,
-            count: onlineUsers.length,
+        client.emit('online_users', { users: onlineUsers, count: onlineUsers.length });
+    }
+
+    // ─── Public emit metodlar (HTTP controller uchun) ────────────────────────
+
+    emitNewMessage(chatId: string, message: any) {
+        this.server.to(`chat:${chatId}`).emit('new_message', message);
+    }
+
+    emitMessageDeleted(chatId: string, messageId: string) {
+        this.server.to(`chat:${chatId}`).emit('message_deleted', {
+            message_id: messageId,
+            chat_id: chatId,
+        });
+    }
+
+    emitMessagesRead(chatId: string, readByUserId: string) {
+        this.server.to(`chat:${chatId}`).emit('messages_read', {
+            chat_id: chatId,
+            read_by: readByUserId,
+            timestamp: new Date(),
         });
     }
 }

@@ -11,6 +11,10 @@ import { CreateDriverDto } from './dto/create.driver.dto';
 export class DriverService {
     constructor(private prisma: DatabaseService, private config: ConfigService) { }
     async createDriver(data: CreateDriverDto, photoUrl?: string) {
+        // Bo'sh string ni undefined ga aylantirish
+        if (!data.taxi_category_id) data.taxi_category_id = undefined;
+        if (!data.email) data.email = undefined;
+
         const existsEmail = data.email
             ? await this.prisma.user.findUnique({ where: { email: data.email } })
             : null;
@@ -22,12 +26,13 @@ export class DriverService {
         if (existsEmail || existsPhone) {
             throw new ConflictException('this driver already exists');
         }
-        const existsCategory = await this.prisma.taxiCategory.findUnique({
-
-            where: { id: data.taxi_category_id },
-        });
-        if (!existsCategory) {
-            throw new ConflictException('this category not found');
+        if (data.taxi_category_id) {
+            const existsCategory = await this.prisma.taxiCategory.findUnique({
+                where: { id: data.taxi_category_id },
+            });
+            if (!existsCategory) {
+                throw new ConflictException('this category not found');
+            }
         }
 
         const passwordHash = await bcrypt.hash(data.password, 10);
@@ -80,7 +85,7 @@ export class DriverService {
                     [carColorField]: data.car_color,
                     car_number: data.car_number,
                     status: 'offline',
-                    taxiCategoryId: data.taxi_category_id,
+                    ...(data.taxi_category_id ? { taxiCategoryId: data.taxi_category_id } : {}),
                 },
             });
 
@@ -213,6 +218,9 @@ export class DriverService {
         data: Partial<CreateDriverDto>,
         photoUrl?: string
     ) {
+        if (!data.taxi_category_id) data.taxi_category_id = undefined;
+        if (!data.email) data.email = undefined;
+
         const driver = await this.prisma.user.findUnique({
             where: { id, role: UserRole.driver },
         });

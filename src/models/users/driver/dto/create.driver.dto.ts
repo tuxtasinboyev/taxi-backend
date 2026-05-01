@@ -38,8 +38,9 @@ export class CreateDriverDto {
         example: 'ali@example.com',
         description: 'Haydovchining elektron pochtasi',
     })
+    @IsOptional()
     @IsEmail()
-    email: string;
+    email?: string;
 
     @ApiProperty({
         example: 'StrongPassword123!',
@@ -72,11 +73,11 @@ export class CreateDriverDto {
     @IsNotEmpty()
     car_number: string;
 
-    @ApiProperty({
+    @ApiPropertyOptional({
         example: '63d876fd-a6a5-45b0-859f-6fb9ec01b20c',
         description: 'Taksi kategoriyasi IDsi (TaxiCategory.id)',
     })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    taxi_category_id: string;
+    taxi_category_id?: string;
 }

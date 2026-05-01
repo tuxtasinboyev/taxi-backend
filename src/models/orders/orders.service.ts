@@ -12,6 +12,7 @@ import { Language } from 'src/utils/helper';
 import { SocketGateway } from '../socket/socket.gateway';
 import { RedisGeoService } from './locations/redis-geo.service';
 import { UpdateOrderDto } from './orders.controller';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class OrdersService {
@@ -21,6 +22,7 @@ export class OrdersService {
         private readonly prisma: DatabaseService,
         private readonly redisGeo: RedisGeoService,
         private readonly socketGateway: SocketGateway,
+        private readonly notificationService: NotificationService,
     ) { }
 
     async createOrder(dto: {
@@ -272,6 +274,30 @@ export class OrdersService {
         // Boshqa haydovchilarga bekor xabari
         this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
 
+        // Yo'lovchiga push notification
+        this.notificationService.sendToUser(order.user_id, {
+            title_uz: 'Haydovchi tayinlandi',
+            title_ru: 'Водитель назначен',
+            title_en: 'Driver assigned',
+            message_uz: 'Admin buyurtmangizga haydovchi biriktirdi',
+            message_ru: 'Администратор назначил водителя для вашего заказа',
+            message_en: 'Admin assigned a driver to your order',
+            type: 'order_assigned',
+            data: { order_id: orderId, driver_id: driverId },
+        }).catch(() => null);
+
+        // Haydovchiga push notification
+        this.notificationService.sendToUser(driverId, {
+            title_uz: 'Yangi buyurtma',
+            title_ru: 'Новый заказ',
+            title_en: 'New order',
+            message_uz: 'Admin sizga yangi buyurtma biriktirdi',
+            message_ru: 'Администратор назначил вам новый заказ',
+            message_en: 'Admin assigned you a new order',
+            type: 'order_assigned',
+            data: { order_id: orderId },
+        }).catch(() => null);
+
         this.logger.log(`Admin assigned driver ${driverId} to order ${orderId}`);
         return updatedOrder;
     }
@@ -336,6 +362,18 @@ export class OrdersService {
 
         this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
 
+        // Yo'lovchiga push notification
+        this.notificationService.sendToUser(order.user_id, {
+            title_uz: 'Buyurtma qabul qilindi',
+            title_ru: 'Заказ принят',
+            title_en: 'Order accepted',
+            message_uz: 'Haydovchi buyurtmangizni qabul qildi, yo\'lingizda',
+            message_ru: 'Водитель принял ваш заказ и едет к вам',
+            message_en: 'Driver accepted your order and is on the way',
+            type: 'order_accepted',
+            data: { order_id: orderId, driver_id: driverId },
+        }).catch(() => null);
+
         return updatedOrder;
     }
 
@@ -392,6 +430,30 @@ export class OrdersService {
             amount: driverEarn,
         });
 
+        // Yo'lovchiga push notification
+        this.notificationService.sendToUser(order.user_id, {
+            title_uz: 'Sayohat yakunlandi',
+            title_ru: 'Поездка завершена',
+            title_en: 'Trip completed',
+            message_uz: `Sayohatingiz muvaffaqiyatli yakunlandi. Narx: ${Number(order.price).toFixed(0)} so'm`,
+            message_ru: `Ваша поездка успешно завершена. Цена: ${Number(order.price).toFixed(0)} сум`,
+            message_en: `Your trip completed successfully. Price: ${Number(order.price).toFixed(0)} sum`,
+            type: 'order_completed',
+            data: { order_id: orderId },
+        }).catch(() => null);
+
+        // Haydovchiga push notification
+        this.notificationService.sendToUser(order.driver_id, {
+            title_uz: 'Buyurtma yakunlandi',
+            title_ru: 'Заказ завершён',
+            title_en: 'Order completed',
+            message_uz: `Buyurtma yakunlandi. Daromadingiz: ${driverEarn.toFixed(0)} so'm`,
+            message_ru: `Заказ завершён. Ваш заработок: ${driverEarn.toFixed(0)} сум`,
+            message_en: `Order completed. Your earnings: ${driverEarn.toFixed(0)} sum`,
+            type: 'order_completed',
+            data: { order_id: orderId, earned: String(driverEarn) },
+        }).catch(() => null);
+
         this.logger.log(`✅ Order ${orderId} completed: driver ${order.driver_id} earned ${driverEarn}`);
         return updatedOrder;
     }
@@ -443,6 +505,45 @@ export class OrdersService {
 
         if (status === 'completed') {
             await this.completeOrder(orderId);
+        }
+
+        if (status === 'on_the_way') {
+            this.notificationService.sendToUser(updated.user_id, {
+                title_uz: 'Haydovchi yo\'lda',
+                title_ru: 'Водитель в пути',
+                title_en: 'Driver on the way',
+                message_uz: 'Haydovchi sizning manzilingizga yo\'lda',
+                message_ru: 'Водитель направляется к вашему адресу',
+                message_en: 'Driver is heading to your location',
+                type: 'order_on_the_way',
+                data: { order_id: orderId },
+            }).catch(() => null);
+        }
+
+        if (status === 'cancelled') {
+            this.notificationService.sendToUser(updated.user_id, {
+                title_uz: 'Buyurtma bekor qilindi',
+                title_ru: 'Заказ отменён',
+                title_en: 'Order cancelled',
+                message_uz: 'Sizning buyurtmangiz bekor qilindi',
+                message_ru: 'Ваш заказ был отменён',
+                message_en: 'Your order has been cancelled',
+                type: 'order_cancelled',
+                data: { order_id: orderId },
+            }).catch(() => null);
+
+            if (updated.driver_id) {
+                this.notificationService.sendToUser(updated.driver_id, {
+                    title_uz: 'Buyurtma bekor qilindi',
+                    title_ru: 'Заказ отменён',
+                    title_en: 'Order cancelled',
+                    message_uz: 'Buyurtma bekor qilindi',
+                    message_ru: 'Заказ был отменён',
+                    message_en: 'The order has been cancelled',
+                    type: 'order_cancelled',
+                    data: { order_id: orderId },
+                }).catch(() => null);
+            }
         }
 
         this.logger.log(`🚖 Order ${orderId} status changed to: ${status}`);

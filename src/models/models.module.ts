@@ -10,9 +10,22 @@ import { PaymentModule } from './payment/payment.module';
 import { ChatModule } from './chat/chat.module';
 import { ReviewModule } from './review/review.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, OrdersModule, PriceModule, LocationModule, PromocodeModule, PaymentModule, ChatModule, ReviewModule, DashboardModule],
+  imports: [
+    AuthModule,
+    UsersModule,
+    OrdersModule,
+    PriceModule,
+    LocationModule,
+    PromocodeModule,
+    PaymentModule,
+    ChatModule,
+    ReviewModule,
+    DashboardModule,
+    NotificationModule,
+  ],
   providers: [SocketGateway],
   exports: [SocketGateway],
 })

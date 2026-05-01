@@ -2,15 +2,16 @@ import { Module } from '@nestjs/common';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { RedisGeoService } from './locations/redis-geo.service';
-import { LocationGateway } from './locations/location.chatgetaway'; 
+import { LocationGateway } from './locations/location.chatgetaway';
 import { DatabaseService } from 'src/config/database/database.service';
 import { OrdersGateway } from './order.gataway';
 import { DatabaseModule } from 'src/config/database/database.module';
 import { RedisModule } from 'src/config/redis/redis.module';
 import { SocketGateway } from '../socket/socket.gateway';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [DatabaseModule,RedisModule,],
+  imports: [DatabaseModule, RedisModule, NotificationModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,
@@ -18,7 +19,7 @@ import { SocketGateway } from '../socket/socket.gateway';
     LocationGateway,
     DatabaseService,
     OrdersGateway,
-    SocketGateway
+    SocketGateway,
   ],
   exports: [OrdersService],
 })
