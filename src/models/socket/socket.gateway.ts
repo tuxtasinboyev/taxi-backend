@@ -3,6 +3,9 @@ import {
     WebSocketServer,
     OnGatewayConnection,
     OnGatewayDisconnect,
+    SubscribeMessage,
+    MessageBody,
+    ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
@@ -24,8 +27,19 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     private clients = new Map<string, ConnectedClient>();
 
+    private extractRole(client: Socket) {
+        return (client.handshake.auth.role || client.handshake.query.role) as string | undefined;
+    }
+
+    private isPrivilegedRole(role?: string) {
+        return role === 'admin' || role === 'superadmin';
+    }
+
     handleConnection(client: Socket) {
         this.logger.log(`✅ Socket connected: ${client.id}`);
+        if (this.isPrivilegedRole(this.extractRole(client))) {
+            client.join('admin:orders');
+        }
     }
 
     handleDisconnect(client: Socket) {
@@ -43,6 +57,72 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.debug(
             `👤 Registered socket ${socket.id} for userId=${payload.userId} / driverId=${payload.driverId}`,
         );
+    }
+
+    @SubscribeMessage('admin:register')
+    handleAdminRegister(@ConnectedSocket() client: Socket) {
+        if (!this.isPrivilegedRole(this.extractRole(client))) {
+            client.emit('error', {
+                event: 'admin:register',
+                message: 'Admin yoki superadmin ruxsati talab qilinadi',
+            });
+            return;
+        }
+
+        client.join('admin:orders');
+        client.emit('admin:registered', {
+            success: true,
+            room: 'admin:orders',
+        });
+    }
+
+    @SubscribeMessage('admin:subscribe_orders')
+    handleAdminSubscribeOrders(
+        @MessageBody() data: { orderId?: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        if (!this.isPrivilegedRole(this.extractRole(client))) {
+            client.emit('error', {
+                event: 'admin:subscribe_orders',
+                message: 'Admin yoki superadmin ruxsati talab qilinadi',
+            });
+            return;
+        }
+
+        client.join('admin:orders');
+        if (data?.orderId) {
+            client.join(`admin:order:${data.orderId}`);
+        }
+
+        client.emit('admin:orders_subscribed', {
+            success: true,
+            order_id: data?.orderId ?? null,
+        });
+    }
+
+    @SubscribeMessage('admin:unsubscribe_orders')
+    handleAdminUnsubscribeOrders(
+        @MessageBody() data: { orderId?: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        if (!this.isPrivilegedRole(this.extractRole(client))) {
+            client.emit('error', {
+                event: 'admin:unsubscribe_orders',
+                message: 'Admin yoki superadmin ruxsati talab qilinadi',
+            });
+            return;
+        }
+
+        if (data?.orderId) {
+            client.leave(`admin:order:${data.orderId}`);
+        } else {
+            client.leave('admin:orders');
+        }
+
+        client.emit('admin:orders_unsubscribed', {
+            success: true,
+            order_id: data?.orderId ?? null,
+        });
     }
 
     emitToDriver(driverId: string, event: string, data: any) {
@@ -72,8 +152,16 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.debug(`📢 Broadcast to all except driver ${exceptDriverId}: ${event}`);
     }
 
-        broadcastAll(event: string, data: any) {
+    broadcastAll(event: string, data: any) {
         this.server.emit(event, data);
         this.logger.debug(`🌍 Broadcast all: ${event}`);
+    }
+
+    emitToAdminOrders(event: string, data: any) {
+        this.server.to('admin:orders').emit(event, data);
+        if (data?.order_id) {
+            this.server.to(`admin:order:${data.order_id}`).emit(event, data);
+        }
+        this.logger.debug(`🛡️ Emit to admin orders: ${event}`);
     }
 }

@@ -52,7 +52,9 @@ export class ChatController {
     @ApiOperation({ summary: 'Order uchun chat yaratish yoki mavjudini olish' })
     @ApiResponse({ status: HttpStatus.CREATED, description: 'Chat yaratildi yoki mavjudi qaytarildi' })
     async createChat(@Body() dto: CreateChatDto, @UserData() req: JwtPayload) {
-        return this.chatService.getOrCreateChatForOrder(dto, req.id);
+        const chat = await this.chatService.getOrCreateChatForOrder(dto, req.id);
+        this.chatGateway.emitChatCreated(chat);
+        return chat;
     }
 
     @Post('support/create')
@@ -61,7 +63,9 @@ export class ChatController {
     @ApiOperation({ summary: 'Support chat yaratish yoki mavjudini olish' })
     @ApiResponse({ status: HttpStatus.CREATED, description: 'Support chat yaratildi yoki mavjudi qaytarildi' })
     async createSupportChat(@Body() dto: CreateSupportChatDto, @UserData() req: JwtPayload) {
-        return this.chatService.getOrCreateSupportChat(dto, req.id);
+        const chat = await this.chatService.getOrCreateSupportChat(dto, req.id);
+        this.chatGateway.emitChatCreated(chat);
+        return chat;
     }
 
     // ─── Xabar yuborish ───────────────────────────────────────────────────────
@@ -75,7 +79,7 @@ export class ChatController {
     async sendMessage(@Body() dto: SendMessageDto, @UserData() req: JwtPayload) {
         const message = await this.chatService.sendMessage(dto, req.id);
         // Socket orqali barcha chat ishtirokchilariga real-time yuborish
-        this.chatGateway.emitNewMessage(dto.chat_id, message);
+        await this.chatGateway.emitNewMessage(dto.chat_id, message);
         return message;
     }
 
@@ -87,7 +91,7 @@ export class ChatController {
     @ApiResponse({ status: HttpStatus.OK, description: 'Xabar o\'chirildi' })
     async deleteMessage(@Param('messageId') messageId: string, @UserData() req: JwtPayload) {
         const result = await this.chatService.deleteMessage(messageId, req.id);
-        this.chatGateway.emitMessageDeleted(result.chat_id, result.message_id);
+        await this.chatGateway.emitMessageDeleted(result.chat_id, result.message_id);
         return result;
     }
 
@@ -98,7 +102,7 @@ export class ChatController {
     @ApiResponse({ status: HttpStatus.OK, description: 'Xabarlar o\'qildi' })
     async markRead(@Body() dto: MarkReadDto, @UserData() req: JwtPayload) {
         const result = await this.chatService.markMessagesAsRead(dto.chat_id, req.id);
-        this.chatGateway.emitMessagesRead(dto.chat_id, req.id);
+        await this.chatGateway.emitMessagesRead(dto.chat_id, req.id);
         return result;
     }
 

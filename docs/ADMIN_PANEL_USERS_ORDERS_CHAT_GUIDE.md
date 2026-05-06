@@ -1311,15 +1311,626 @@ Response:
 
 ---
 
-## 6. Admin Panel Page Mapping
+## 6. Socket Guide
 
-## 6.1 Users page
+Admin panel uchun initial data ni HTTP orqali olish tavsiya qilinadi.
+Socket esa real-time update uchun ishlatiladi.
+
+Namespace lar:
+
+- Chat -> `/chat`
+- Orders -> `/ws`
+- Locations -> `/location`
+
+Socket connect example:
+
+```js
+const chatSocket = io(`${BASE_URL}/chat`, {
+  auth: {
+    userId: "uuid-admin",
+    deviceId: "admin-web",
+    role: "admin"
+  }
+});
+
+const orderSocket = io(`${BASE_URL}/ws`, {
+  auth: {
+    userId: "uuid-admin",
+    role: "admin"
+  }
+});
+
+const locationSocket = io(`${BASE_URL}/location`, {
+  auth: {
+    userId: "uuid-admin",
+    role: "admin"
+  }
+});
+```
+
+---
+
+## 6.1 Chat Socket - Admin Monitoring
+
+Namespace:
+
+```text
+/chat
+```
+
+### Client -> Server
+
+#### `admin:subscribe_chats`
+
+Request:
+
+```json
+{
+  "scope": "all"
+}
+```
+
+Yoki:
+
+```json
+{
+  "scope": "support"
+}
+```
+
+Yoki:
+
+```json
+{
+  "scope": "order"
+}
+```
+
+Response event:
+
+```json
+{
+  "success": true,
+  "scope": "all"
+}
+```
+
+#### `admin:join_chat`
+
+Request:
+
+```json
+{
+  "chat_id": "uuid-chat",
+  "language": "uz"
+}
+```
+
+Response event `admin:joined_chat`:
+
+```json
+{
+  "success": true,
+  "chat_id": "uuid-chat",
+  "chat_info": {
+    "id": "uuid-chat",
+    "subject": "Qo'llab-quvvatlash",
+    "type": "support",
+    "order_id": null,
+    "order_status": null,
+    "participants": [
+      {
+        "id": "uuid-user",
+        "name": "Ali Valiyev",
+        "phone": "+998901234567",
+        "email": "ali@example.com",
+        "role": "passenger"
+      }
+    ]
+  }
+}
+```
+
+#### `admin:leave_chat`
+
+Request:
+
+```json
+{
+  "chat_id": "uuid-chat"
+}
+```
+
+Response event `admin:left_chat`:
+
+```json
+{
+  "success": true,
+  "chat_id": "uuid-chat"
+}
+```
+
+### Server -> Client
+
+#### `admin:chat:created`
+
+Support chat yoki order chat yaratilganda keladi.
+
+Payload:
+
+```json
+{
+  "chat": {
+    "id": "uuid-chat",
+    "subject": "Qo'llab-quvvatlash",
+    "type": "support",
+    "order_id": null,
+    "order_status": null,
+    "created_at": "2026-05-06T12:20:00.000Z",
+    "updated_at": "2026-05-06T12:20:00.000Z"
+  },
+  "trigger": "admin:chat:created",
+  "order_id": null,
+  "order_status": null,
+  "type": "support"
+}
+```
+
+#### `admin:chat:new_message`
+
+Payload:
+
+```json
+{
+  "chat": {
+    "id": "uuid-chat",
+    "subject": "Qo'llab-quvvatlash",
+    "type": "support",
+    "updated_at": "2026-05-06T12:21:00.000Z"
+  },
+  "trigger": "admin:chat:new_message",
+  "id": "uuid-chat",
+  "type": "support",
+  "order_id": null,
+  "order_status": null,
+  "message": {
+    "id": "uuid-message",
+    "chat_id": "uuid-chat",
+    "sender": {
+      "id": "uuid-user",
+      "name": "Ali Valiyev",
+      "phone": "+998901234567",
+      "email": "ali@example.com",
+      "role": "passenger"
+    },
+    "message": "Salom",
+    "message_type": "text",
+    "is_read": false,
+    "read_at": null,
+    "created_at": "2026-05-06T12:21:00.000Z",
+    "updated_at": "2026-05-06T12:21:00.000Z"
+  }
+}
+```
+
+#### `admin:chat:message_deleted`
+
+Payload:
+
+```json
+{
+  "chat": {
+    "id": "uuid-chat",
+    "subject": "Qo'llab-quvvatlash",
+    "type": "support"
+  },
+  "trigger": "admin:chat:message_deleted",
+  "id": "uuid-chat",
+  "type": "support",
+  "order_id": null,
+  "order_status": null,
+  "message_id": "uuid-message"
+}
+```
+
+#### `admin:chat:messages_read`
+
+Payload:
+
+```json
+{
+  "chat": {
+    "id": "uuid-chat",
+    "subject": "Qo'llab-quvvatlash",
+    "type": "support"
+  },
+  "trigger": "admin:chat:messages_read",
+  "id": "uuid-chat",
+  "type": "support",
+  "order_id": null,
+  "order_status": null,
+  "read_by": "uuid-user",
+  "timestamp": "2026-05-06T12:22:00.000Z"
+}
+```
+
+#### `admin:chat:typing`
+
+Payload:
+
+```json
+{
+  "chat_id": "uuid-chat",
+  "user_id": "uuid-user",
+  "is_typing": true,
+  "timestamp": "2026-05-06T12:22:10.000Z"
+}
+```
+
+Frontend tavsiya:
+
+- Chat list page -> `admin:subscribe_chats { scope: "all" }`
+- Support inbox -> `admin:subscribe_chats { scope: "support" }`
+- Order chat monitor -> `admin:subscribe_chats { scope: "order" }`
+- Chat detail -> `admin:join_chat`
+
+---
+
+## 6.2 Orders Socket - Admin Monitoring
+
+Namespace:
+
+```text
+/ws
+```
+
+### Client -> Server
+
+#### `admin:register`
+
+Request:
+
+```json
+{}
+```
+
+Response `admin:registered`:
+
+```json
+{
+  "success": true,
+  "room": "admin:orders"
+}
+```
+
+#### `admin:subscribe_orders`
+
+Barcha order eventlari uchun:
+
+```json
+{}
+```
+
+Bitta order detail uchun:
+
+```json
+{
+  "orderId": "uuid-order"
+}
+```
+
+Response `admin:orders_subscribed`:
+
+```json
+{
+  "success": true,
+  "order_id": "uuid-order"
+}
+```
+
+#### `admin:unsubscribe_orders`
+
+Request:
+
+```json
+{
+  "orderId": "uuid-order"
+}
+```
+
+Response `admin:orders_unsubscribed`:
+
+```json
+{
+  "success": true,
+  "order_id": "uuid-order"
+}
+```
+
+### Server -> Client
+
+#### `admin:order:created`
+
+Payload:
+
+```json
+{
+  "order_id": "uuid-order",
+  "user_id": "uuid-user",
+  "driver_id": null,
+  "status": "pending",
+  "price": 18000,
+  "distance_km": 4.2,
+  "duration_min": 8.4,
+  "created_at": "2026-05-06T12:30:00.000Z",
+  "promo_applied": true,
+  "nearby_drivers_count": 5
+}
+```
+
+#### `admin:order:assigned`
+
+Payload:
+
+```json
+{
+  "order_id": "uuid-order",
+  "user_id": "uuid-user",
+  "driver_id": "uuid-driver",
+  "status": "accepted",
+  "price": 18000,
+  "assigned_at": "2026-05-06T12:31:00.000Z"
+}
+```
+
+#### `admin:order:accepted`
+
+Payload:
+
+```json
+{
+  "order_id": "uuid-order",
+  "user_id": "uuid-user",
+  "driver_id": "uuid-driver",
+  "status": "accepted",
+  "accepted_at": "2026-05-06T12:31:10.000Z"
+}
+```
+
+#### `admin:order:status_updated`
+
+Payload:
+
+```json
+{
+  "order_id": "uuid-order",
+  "user_id": "uuid-user",
+  "driver_id": "uuid-driver",
+  "status": "on_the_way",
+  "updated_at": "2026-05-06T12:35:00.000Z"
+}
+```
+
+#### `admin:order:updated`
+
+Payload:
+
+```json
+{
+  "order_id": "uuid-order",
+  "user_id": "uuid-user",
+  "driver_id": "uuid-driver",
+  "status": "accepted",
+  "new_price": 22000,
+  "promo_applied": false,
+  "applied_promo": null,
+  "updated_at": "2026-05-06T12:36:00.000Z"
+}
+```
+
+#### `admin:order:completed`
+
+Payload:
+
+```json
+{
+  "order_id": "uuid-order",
+  "user_id": "uuid-user",
+  "driver_id": "uuid-driver",
+  "status": "completed",
+  "amount": 17100,
+  "completed_at": "2026-05-06T12:45:00.000Z"
+}
+```
+
+Frontend tavsiya:
+
+- Orders list page -> `admin:register` yoki `admin:subscribe_orders`
+- Order detail page -> `admin:subscribe_orders { orderId }`
+
+---
+
+## 6.3 Location Socket - Admin Order Tracking
+
+Namespace:
+
+```text
+/location
+```
+
+### Client -> Server
+
+#### `admin:subscribe`
+
+Admin map uchun barcha driverlarni kuzatadi.
+
+Request:
+
+```json
+{}
+```
+
+Response event `admin:all-drivers`:
+
+```json
+[
+  {
+    "type": "driver",
+    "id": "uuid-driver",
+    "lat": 41.2995,
+    "lng": 69.2401,
+    "speed": 30,
+    "bearing": 120,
+    "timestamp": "2026-05-06T12:40:00.000Z"
+  }
+]
+```
+
+#### `admin:get-all-drivers`
+
+Request:
+
+```json
+{}
+```
+
+Response event:
+
+```json
+[
+  {
+    "type": "driver",
+    "id": "uuid-driver",
+    "lat": 41.2995,
+    "lng": 69.2401,
+    "speed": 30,
+    "bearing": 120,
+    "timestamp": "2026-05-06T12:40:00.000Z"
+  }
+]
+```
+
+#### `admin:join_order`
+
+Bitta orderning live location roomiga kiradi.
+
+Request:
+
+```json
+{
+  "orderId": "uuid-order"
+}
+```
+
+Response event `admin:joined_order`:
+
+```json
+{
+  "success": true,
+  "orderId": "uuid-order",
+  "locations": {
+    "driver": {
+      "type": "driver",
+      "id": "uuid-driver",
+      "lat": 41.2995,
+      "lng": 69.2401,
+      "speed": 30,
+      "bearing": 120,
+      "timestamp": "2026-05-06T12:40:00.000Z"
+    },
+    "passenger": {
+      "type": "passenger",
+      "id": "uuid-user",
+      "lat": 41.311,
+      "lng": 69.279,
+      "accuracy": 15,
+      "timestamp": "2026-05-06T12:40:05.000Z"
+    }
+  }
+}
+```
+
+#### `admin:leave_order`
+
+Request:
+
+```json
+{
+  "orderId": "uuid-order"
+}
+```
+
+Response event `admin:left_order`:
+
+```json
+{
+  "success": true,
+  "orderId": "uuid-order"
+}
+```
+
+### Server -> Client
+
+Admin `order:<orderId>` roomga kirganidan keyin quyidagi eventlarni oladi:
+
+- `driver:accepted`
+- `location:driver-updated`
+- `location:passenger-updated`
+- `location:current`
+- `order:finished`
+
+`location:driver-updated` payload:
+
+```json
+{
+  "type": "driver",
+  "id": "uuid-driver",
+  "lat": 41.2995,
+  "lng": 69.2401,
+  "speed": 32,
+  "bearing": 90,
+  "timestamp": "2026-05-06T12:41:00.000Z"
+}
+```
+
+`location:passenger-updated` payload:
+
+```json
+{
+  "type": "passenger",
+  "id": "uuid-user",
+  "lat": 41.311,
+  "lng": 69.279,
+  "accuracy": 10,
+  "timestamp": "2026-05-06T12:41:05.000Z"
+}
+```
+
+`admin:driver-updated` payload:
+
+```json
+{
+  "type": "driver",
+  "id": "uuid-driver",
+  "lat": 41.2995,
+  "lng": 69.2401,
+  "speed": 32,
+  "bearing": 90,
+  "timestamp": "2026-05-06T12:41:00.000Z"
+}
+```
+
+---
+
+## 7. Admin Panel Page Mapping
+
+## 7.1 Users page
 
 Ishlatiladigan API:
 
 - `GET /users`
 
-## 6.2 User detail page
+## 7.2 User detail page
 
 Ishlatiladigan API:
 
@@ -1328,20 +1939,30 @@ Ishlatiladigan API:
 - `GET /orders/get-all-orders?user_id=<id>`
 - `GET /chat/admin/list?user_id=<id>`
 
-## 6.3 Cards page
+## 7.3 Cards page
 
 Ishlatiladigan API:
 
 - `GET /cards`
 - `DELETE /cards/admin/:id`
 
-## 6.4 Orders page
+## 7.4 Orders page
 
 Ishlatiladigan API:
 
 - `GET /orders/get-all-orders`
 
-## 6.5 Order detail page
+Ishlatiladigan socket:
+
+- `/ws` -> `admin:register`
+- `/ws` -> `admin:order:created`
+- `/ws` -> `admin:order:assigned`
+- `/ws` -> `admin:order:accepted`
+- `/ws` -> `admin:order:status_updated`
+- `/ws` -> `admin:order:updated`
+- `/ws` -> `admin:order:completed`
+
+## 7.5 Order detail page
 
 Ishlatiladigan API:
 
@@ -1351,7 +1972,15 @@ Ishlatiladigan API:
 - `PATCH /orders/:id`
 - `GET /chat/admin/list?order_id=<id>`
 
-## 6.6 Chat page
+Ishlatiladigan socket:
+
+- `/ws` -> `admin:subscribe_orders { orderId }`
+- `/location` -> `admin:join_order`
+- `/location` -> `location:driver-updated`
+- `/location` -> `location:passenger-updated`
+- `/location` -> `order:finished`
+
+## 7.6 Chat page
 
 Ishlatiladigan API:
 
@@ -1360,9 +1989,19 @@ Ishlatiladigan API:
 - `GET /chat/admin/messages`
 - `POST /chat/message/send`
 
+Ishlatiladigan socket:
+
+- `/chat` -> `admin:subscribe_chats`
+- `/chat` -> `admin:join_chat`
+- `/chat` -> `admin:chat:created`
+- `/chat` -> `admin:chat:new_message`
+- `/chat` -> `admin:chat:message_deleted`
+- `/chat` -> `admin:chat:messages_read`
+- `/chat` -> `admin:chat:typing`
+
 ---
 
-## 7. Hozirgi Backend Cheklovlari
+## 8. Hozirgi Backend Cheklovlari
 
 1. `GET /users/:id` hali yo'q.
 2. `Cards` admin endpointlari hozir faqat `admin` uchun.
@@ -1371,7 +2010,7 @@ Ishlatiladigan API:
 
 ---
 
-## 8. Tavsiya Etiladigan Keyingi Backend Qo'shimchalar
+## 9. Tavsiya Etiladigan Keyingi Backend Qo'shimchalar
 
 Agar admin panelni yanada qulay qilmoqchi bo'lsangiz, keyin quyidagilarni qo'shish yaxshi bo'ladi:
 

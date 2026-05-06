@@ -137,6 +137,19 @@ export class OrdersService {
             });
         }
 
+        this.socketGateway.emitToAdminOrders('admin:order:created', {
+            order_id: order.id,
+            user_id: order.user_id,
+            driver_id: order.driver_id,
+            status: order.status,
+            price: Number(order.price),
+            distance_km: Number(order.distance_km),
+            duration_min: Number(order.duration_min),
+            created_at: order.created_at,
+            promo_applied: promoApplied,
+            nearby_drivers_count: nearbyDrivers.length,
+        });
+
         return { order, drivers: nearbyDrivers, promoApplied, appliedPromo };
     }
 
@@ -298,6 +311,15 @@ export class OrdersService {
             data: { order_id: orderId },
         }).catch(() => null);
 
+        this.socketGateway.emitToAdminOrders('admin:order:assigned', {
+            order_id: updatedOrder.id,
+            user_id: updatedOrder.user_id,
+            driver_id: updatedOrder.driver_id,
+            status: updatedOrder.status,
+            price: Number(updatedOrder.price),
+            assigned_at: new Date(),
+        });
+
         this.logger.log(`Admin assigned driver ${driverId} to order ${orderId}`);
         return updatedOrder;
     }
@@ -374,6 +396,14 @@ export class OrdersService {
             data: { order_id: orderId, driver_id: driverId },
         }).catch(() => null);
 
+        this.socketGateway.emitToAdminOrders('admin:order:accepted', {
+            order_id: updatedOrder.id,
+            user_id: updatedOrder.user_id,
+            driver_id: updatedOrder.driver_id,
+            status: updatedOrder.status,
+            accepted_at: new Date(),
+        });
+
         return updatedOrder;
     }
 
@@ -428,6 +458,15 @@ export class OrdersService {
         this.socketGateway.emitToDriver(order.driver_id, 'order:completed', {
             order_id: order.id,
             amount: driverEarn,
+        });
+
+        this.socketGateway.emitToAdminOrders('admin:order:completed', {
+            order_id: updatedOrder.id,
+            user_id: updatedOrder.user_id,
+            driver_id: updatedOrder.driver_id,
+            status: updatedOrder.status,
+            amount: driverEarn,
+            completed_at: updatedOrder.finished_at,
         });
 
         // Yo'lovchiga push notification
@@ -501,6 +540,14 @@ export class OrdersService {
         this.socketGateway.emitToUser(updated.user_id, 'order:status_updated', {
             order_id: updated.id,
             status: updated.status,
+        });
+
+        this.socketGateway.emitToAdminOrders('admin:order:status_updated', {
+            order_id: updated.id,
+            user_id: updated.user_id,
+            driver_id: updated.driver_id,
+            status: updated.status,
+            updated_at: updated.updated_at,
         });
 
         if (status === 'completed') {
@@ -676,6 +723,17 @@ export class OrdersService {
                 new_price: finalPrice,
             });
         }
+
+        this.socketGateway.emitToAdminOrders('admin:order:updated', {
+            order_id: updatedOrder.id,
+            user_id: updatedOrder.user_id,
+            driver_id: updatedOrder.driver_id,
+            status: updatedOrder.status,
+            new_price: finalPrice,
+            promo_applied: promoApplied,
+            applied_promo: appliedPromo,
+            updated_at: updatedOrder.updated_at,
+        });
 
         return { updatedOrder, promoApplied, appliedPromo };
     }

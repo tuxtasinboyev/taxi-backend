@@ -142,6 +142,33 @@ export class ChatService {
         return this.formatMessageResponse(message, sendMessageDto.language);
     }
 
+    async isPrivilegedUser(userId: string) {
+        const role = await this.getUserRole(userId);
+        return this.isPrivilegedRole(role);
+    }
+
+    async getChatMeta(chatId: string) {
+        const chat = await this.prisma.chat.findUnique({
+            where: { id: chatId },
+            include: {
+                order: {
+                    select: {
+                        status: true,
+                    },
+                },
+            },
+        });
+
+        if (!chat) throw new NotFoundException('Chat topilmadi');
+
+        return {
+            id: chat.id,
+            type: chat.type,
+            order_id: chat.order_id,
+            order_status: chat.order?.status ?? null,
+        };
+    }
+
     async markMessagesAsRead(chatId: string, userId: string) {
         const chat = await this.prisma.chat.findUnique({
             where: { id: chatId },

@@ -274,6 +274,38 @@ export class LocationGateway
     client.emit('admin:all-drivers', drivers);
   }
 
+  @SubscribeMessage('admin:join_order')
+  handleAdminJoinOrder(client: Socket, data: { orderId: string }) {
+    client.join(`order:${data.orderId}`);
+    this.logger.debug(`Admin joined order room: ${data.orderId}`);
+
+    const order = this.activeOrders.get(data.orderId);
+    const locations = {
+      driver: order?.driverId
+        ? (this.lastLocations.get(`driver:${order.driverId}`) ?? null)
+        : null,
+      passenger: order?.passengerId
+        ? (this.lastLocations.get(`passenger:${order.passengerId}`) ?? null)
+        : null,
+    };
+
+    client.emit('admin:joined_order', {
+      success: true,
+      orderId: data.orderId,
+      locations,
+    });
+  }
+
+  @SubscribeMessage('admin:leave_order')
+  handleAdminLeaveOrder(client: Socket, data: { orderId: string }) {
+    client.leave(`order:${data.orderId}`);
+    this.logger.debug(`Admin left order room: ${data.orderId}`);
+    client.emit('admin:left_order', {
+      success: true,
+      orderId: data.orderId,
+    });
+  }
+
   // Admin uchun — barcha joylashuvlar
   broadcastAllLocations(locations: unknown) {
     this.server.to('admin:map').emit('locations-update', locations);
