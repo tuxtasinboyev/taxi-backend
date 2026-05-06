@@ -332,8 +332,8 @@ model ChatMessage {
   message_en   String?
   message_type MessageType @default(text)
 
-  is_read  Boolean   @default(false)
-  read_at  DateTime?
+  is_read Boolean   @default(false)
+  read_at DateTime?
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -350,6 +350,7 @@ enum UserRole {
   passenger
   driver
   admin
+  superadmin
 }
 
 enum DriverStatus {
