@@ -124,7 +124,7 @@ export class NotificationController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post('admin/send-to-user')
     @ApiOperation({ summary: 'Admin: bitta foydalanuvchiga notification yuborish' })
@@ -142,7 +142,7 @@ export class NotificationController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post('admin/send-to-all')
     @ApiOperation({ summary: 'Admin: barcha foydalanuvchilarga notification yuborish' })
@@ -163,7 +163,7 @@ export class NotificationController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post('admin/send-to-device')
     @ApiOperation({ summary: 'Admin: bitta qurilmaga (FCM token) notification yuborish' })

@@ -53,7 +53,7 @@ export class ReviewController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Get()
     @ApiOperation({ summary: 'Barcha baholar (admin)' })
     @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -85,7 +85,7 @@ export class ReviewController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Get(':id')
     @ApiOperation({ summary: 'ID bo\'yicha baho olish (admin)' })
     @ApiParam({ name: 'id', description: 'Review UUID' })
@@ -100,7 +100,7 @@ export class ReviewController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Delete(':id')
     @ApiOperation({ summary: 'Bahoni o\'chirish (admin)' })
     @ApiParam({ name: 'id', description: 'Review UUID' })

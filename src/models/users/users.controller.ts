@@ -36,7 +36,7 @@ import { UsersService } from './users.service';
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post()
     @ApiOperation({ summary: 'Create new user (Admin only)' })
@@ -63,7 +63,7 @@ export class UsersController {
         return this.usersService.Getme(userId);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get()
     @ApiOperation({ summary: 'Get all users with pagination and filtering' })
@@ -142,7 +142,7 @@ export class UsersController {
 
     @UseGuards(GuardService, RoleGuardService)
     @ApiBearerAuth()
-    @Role('admin')
+    @Role('admin','superadmin')
     @Delete(':id')
     @ApiOperation({ summary: 'Delete user by id' })
     @ApiResponse({ status: 200, description: 'User deleted successfully' })

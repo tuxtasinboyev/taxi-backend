@@ -23,7 +23,7 @@ import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 export class PriceController {
     constructor(private readonly priceService: PriceService) { }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post()
     @ApiOperation({ summary: 'Yangi Pricing Rule yaratish' })
@@ -33,7 +33,7 @@ export class PriceController {
         return this.priceService.createPriceRule(dto);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get()
     @ApiOperation({ summary: 'Barcha pricing qoidalarini olish' })
@@ -42,7 +42,7 @@ export class PriceController {
         return this.priceService.getAllPriceRules();
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get('active')
     @ApiOperation({ summary: 'Faol pricing qoidani olish' })
@@ -51,7 +51,7 @@ export class PriceController {
         return this.priceService.getActivePriceRule();
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get(':id')
     @ApiOperation({ summary: 'ID bo‘yicha pricing qoida olish' })
@@ -60,7 +60,7 @@ export class PriceController {
         return this.priceService.getPriceRuleById(id);
     }
     @UseGuards(GuardService,RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Patch(':id')
     @ApiOperation({ summary: 'Pricing qoidani yangilash' })
@@ -72,7 +72,7 @@ export class PriceController {
         return this.priceService.updatePriceRule(id, dto);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Delete(':id')
     @ApiOperation({ summary: 'Pricing qoidani o‘chirish' })

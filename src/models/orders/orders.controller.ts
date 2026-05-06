@@ -81,7 +81,7 @@ export class OrdersController {
 
     // Admin: order yaratish (istalgan user uchun, haydovchi biriktirib ham bo'ladi)
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Post('admin-create')
     @ApiOperation({ summary: 'Admin: istalgan user uchun order yaratish' })
     @ApiBody({
@@ -108,7 +108,7 @@ export class OrdersController {
 
     // Admin: order ga haydovchi biriktirish
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Patch(':id/assign-driver/:driverId')
     @ApiOperation({ summary: 'Admin: orderga haydovchi biriktirish' })
     @ApiParam({ name: 'id', description: 'Order ID' })
@@ -120,7 +120,7 @@ export class OrdersController {
 
     // Admin: order uchun yaqin haydovchilar
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Get(':id/nearby-drivers')
     @ApiOperation({ summary: 'Admin: order start nuqtasiga yaqin haydovchilar' })
     @ApiParam({ name: 'id', description: 'Order ID' })
@@ -201,7 +201,7 @@ export class OrdersController {
         }
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Get('get-all-orders')
     @ApiOperation({ summary: 'Barcha zakaslarni olish (admin uchun)' })
     @ApiQuery({ name: 'language', required: true, enum: ['uz', 'ru', 'en'], description: 'Language for names' })
@@ -248,7 +248,7 @@ export class OrdersController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Get(':id')
     @ApiOperation({ summary: 'id buyicha zakaslarni olish (admin uchun)' })
     @ApiParam({ name: 'id', required: true, description: 'Order ID' })
@@ -303,7 +303,7 @@ export class OrdersController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin', 'passenger')
+    @Role('admin', 'passenger','superadmin')
     @ApiBearerAuth()
     @Patch(':id')
     @ApiOperation({ summary: `Update an existing order ${UserRole.admin} , ${UserRole.passenger}` })

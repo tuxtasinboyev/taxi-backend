@@ -22,12 +22,16 @@ import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gataway';
 import {
     CreateChatDto,
+    CreateSupportChatDto,
+    GetAdminChatsDto,
     GetChatMessagesDto,
     GetUserChatsDto,
     MarkReadDto,
     SendMessageDto,
 } from './dto/chat.dto';
+import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { Language } from 'src/utils/helper';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import type { JwtPayload } from 'src/config/jwt/jwt.service';
@@ -49,6 +53,15 @@ export class ChatController {
     @ApiResponse({ status: HttpStatus.CREATED, description: 'Chat yaratildi yoki mavjudi qaytarildi' })
     async createChat(@Body() dto: CreateChatDto, @UserData() req: JwtPayload) {
         return this.chatService.getOrCreateChatForOrder(dto, req.id);
+    }
+
+    @Post('support/create')
+    @UseGuards(RoleGuardService)
+    @Role('passenger', 'driver')
+    @ApiOperation({ summary: 'Support chat yaratish yoki mavjudini olish' })
+    @ApiResponse({ status: HttpStatus.CREATED, description: 'Support chat yaratildi yoki mavjudi qaytarildi' })
+    async createSupportChat(@Body() dto: CreateSupportChatDto, @UserData() req: JwtPayload) {
+        return this.chatService.getOrCreateSupportChat(dto, req.id);
     }
 
     // ─── Xabar yuborish ───────────────────────────────────────────────────────
@@ -123,6 +136,35 @@ export class ChatController {
     @ApiOperation({ summary: 'Foydalanuvchining barcha chatlarini olish' })
     async getUserChats(@Query() dto: GetUserChatsDto, @UserData() req: JwtPayload) {
         return this.chatService.getUserChats(dto, req.id);
+    }
+
+    @Get('admin/list')
+    @UseGuards(RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiOperation({ summary: 'Admin/Superadmin uchun barcha chatlarni kuzatish ro\'yxati' })
+    async getAdminChats(@Query() dto: GetAdminChatsDto) {
+        return this.chatService.getAdminChats(dto);
+    }
+
+    @Get('admin/messages')
+    @UseGuards(RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiOperation({ summary: 'Admin/Superadmin uchun chat xabarlarini olish' })
+    async getAdminChatMessages(@Query() dto: GetChatMessagesDto) {
+        return this.chatService.getAdminChatMessages(dto);
+    }
+
+    @Get('admin/:chatId')
+    @UseGuards(RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiOperation({ summary: 'Admin/Superadmin uchun bitta chatni olish' })
+    @ApiParam({ name: 'chatId', description: 'Chat ID' })
+    @ApiQuery({ name: 'language', enum: Language, required: true, example: Language.uz })
+    async getAdminChat(
+        @Param('chatId') chatId: string,
+        @Query('language') language: Language,
+    ) {
+        return this.chatService.getAdminChat(chatId, language);
     }
 
     // ─── Bitta chat ───────────────────────────────────────────────────────────

@@ -142,7 +142,7 @@ export class LocationController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get('active-drivers')
     @ApiOperation({ summary: 'Admin: Redis dan barcha aktiv haydovchilar (xarita uchun)' })
@@ -169,7 +169,7 @@ export class LocationController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get('all-locations')
     @ApiOperation({ summary: 'Get all driver and passenger locations' })

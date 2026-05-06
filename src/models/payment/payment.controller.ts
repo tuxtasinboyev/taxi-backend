@@ -24,7 +24,7 @@ import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 export class PaymentController {
     constructor(private readonly paymentService: PaymentService) { }
     @UseGuards(GuardService,RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post()
     @ApiOperation({ summary: 'Create new payment' })
@@ -35,7 +35,7 @@ export class PaymentController {
         return this.paymentService.createPayment(body);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get()
     @ApiOperation({ summary: 'Get all payments' })
@@ -80,7 +80,7 @@ export class PaymentController {
         return this.paymentService.getMyPaymentById(user.id, payment_id, language);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Put(':id')
     @ApiOperation({ summary: 'Update payment' })
@@ -93,7 +93,7 @@ export class PaymentController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Delete(':id')
     @ApiOperation({ summary: 'Delete payment' })
@@ -104,7 +104,7 @@ export class PaymentController {
         return this.paymentService.deletePayment(id);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @Put('active/:id')
     @ApiOperation({ summary: 'Deactivate payment (set active=false) for (admin)' })
     @ApiParam({ name: 'id', type: String })

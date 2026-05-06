@@ -12,7 +12,7 @@ import { UpdatePromoCodeDto } from './dto/update.promocode';
 export class PromocodeController {
     constructor(private readonly promocodeService: PromocodeService) { }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Post()
     @ApiOperation({ summary: 'Yangi promo kod yaratish' })
@@ -22,7 +22,7 @@ export class PromocodeController {
         return this.promocodeService.createPromocode(dto);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get()
     @ApiOperation({ summary: 'Barcha promokodlarni olish' })
@@ -31,7 +31,7 @@ export class PromocodeController {
         return this.promocodeService.getAllPromocode();
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Get(':id')
     @ApiOperation({ summary: 'Bitta promokodni ID orqali olish' })
@@ -41,7 +41,7 @@ export class PromocodeController {
         return this.promocodeService.getOnePromocode(id);
     }
     @UseGuards(GuardService,RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Patch(':id')
     @ApiOperation({ summary: 'Promokodni yangilash' })
@@ -51,7 +51,7 @@ export class PromocodeController {
         return this.promocodeService.updatePromocode(id, dto);
     }
     @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
+    @Role('admin','superadmin')
     @ApiBearerAuth()
     @Delete(':id')
     @ApiOperation({ summary: 'Promokodni o‘chirish' })
