@@ -479,4 +479,59 @@ export class UsersService {
             message: 'user deleted successfully'
         }
     }
+
+    async getUserById(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                driver: true,
+                wallet: true,
+                cards: {
+                    where: { is_default: true },
+                    take: 1
+                },
+                _count: {
+                    select: {
+                        orders: true,
+                        reviewsFrom: true,
+                        reviewsTo: true
+                    }
+                }
+            }
+        });
+
+        if (!user) throw new NotFoundException('User not found');  
+
+        const response = {
+            id: user.id,
+            name_uz: user.name_uz,
+            name_ru: user.name_ru,
+            name_en: user.name_en,
+            phone: user.phone,
+            email: user.email,
+            profile_photo: user.profile_photo,
+            role: user.role,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+            wallet: user.wallet ? { balance: Number(user.wallet.balance), currency: 'UZS' } : null,
+            default_card: user.cards.length > 0 ? {
+                id: user.cards[0].id,
+                brand: user.cards[0].brand,
+                last4: user.cards[0].last4,
+                expiry: `${user.cards[0].expiry_month}/${user.cards[0].expiry_year}`
+            } : null,
+            stats: {
+                total_orders: user._count.orders,
+                reviews_given: user._count.reviewsFrom,
+                reviews_received: user._count.reviewsTo,
+            }
+        };
+
+        return {
+            success: true,
+            message: 'User data retrieved successfully',
+            data: response
+        };
+    }
+
 }

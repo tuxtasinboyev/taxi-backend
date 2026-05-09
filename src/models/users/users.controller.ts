@@ -52,6 +52,8 @@ export class UsersController {
         return this.usersService.createUser(data, photo.filename);
     }
 
+
+
     @UseGuards(GuardService)
     @ApiBearerAuth()
     @Get('me')
@@ -61,6 +63,17 @@ export class UsersController {
     async getMe(@Req() req: any) {
         const userId = req.user.id;
         return this.usersService.Getme(userId);
+    }
+
+    @UseGuards(GuardService)
+    @Role('admin','superadmin')
+    @ApiBearerAuth()
+    @Get(':id')
+    @ApiOperation({ summary: 'Get user by id' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async getUserById(@Param('id') id: string) {
+        
+        return this.usersService.getUserById(id);
     }
     @UseGuards(GuardService, RoleGuardService)
     @Role('admin','superadmin')
@@ -150,4 +163,6 @@ export class UsersController {
     async deleteUser(@Param('id') id: string) {
         return this.usersService.deleteUser(id);
     }
+
+    
 }
