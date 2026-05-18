@@ -238,6 +238,9 @@ model Review {
   comment_ru String?
   comment_en String?
 
+  is_flagged  Boolean @default(false)
+  flag_reason String?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
