@@ -25,7 +25,7 @@ jobs:
           script: |
             set -e
             echo "📁 Creating app folder if not exists..."
-             mkdir -p /var/www/taxi_backend
+            sudo  mkdir -p /var/www/taxi_backend
             cd /var/www/taxi_backend
 
             if [ ! -d "taxi_backend/.git" ]; then
@@ -41,15 +41,15 @@ jobs:
             git pull origin main
 
             echo "🛑 Stopping existing containers..."
-            docker compose down || true
+            sudo docker compose down || true
 
             echo "🛠️ Building new containers..."
-            docker compose build
+            sudo docker compose build
 
             echo "🚀 Starting containers..."
-            docker compose up -d
+            sudo docker compose up -d
 
             echo "🧹 Cleaning up old Docker images..."
-            docker image prune -f
+            sudo docker image prune -f
 
             echo "🎉 Deploy finished successfully!"
