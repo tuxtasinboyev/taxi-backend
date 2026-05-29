@@ -183,10 +183,24 @@ export class OrdersController {
         }
     }
 
-    // 🟢 4. Foydalanuvchining o‘z zakaslari
+    // Haydovchi zakasni rad etadi
+    @UseGuards(GuardService)
+    @Post('reject/:orderId')
+    @ApiOperation({ summary: 'Haydovchi zakasni rad etadi' })
+    @ApiParam({ name: 'orderId', description: 'Zakaz ID (UUID)', type: String })
+    @ApiResponse({ status: 200, description: 'Buyurtma rad etildi' })
+    @ApiResponse({ status: 409, description: 'Bu buyurtmani rad etib bo\'lmaydi' })
+    async rejectOrder(
+        @Param('orderId') orderId: string,
+        @UserData() user: JwtPayload,
+    ) {
+        return this.ordersService.rejectOrder(user.id, orderId);
+    }
+
+    // 🟢 4. Foydalanuvchining o'z zakaslari
     @UseGuards(GuardService)
     @Get('my')
-    @ApiOperation({ summary: 'Foydalanuvchining o‘z zakaslarini olish' })
+    @ApiOperation({ summary: "Foydalanuvchining o'z zakaslarini olish" })
     async getMyOrders(@Req() req: Request) {
         try {
             const user = req['user'] as { id: string };

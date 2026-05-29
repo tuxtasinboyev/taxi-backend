@@ -434,6 +434,24 @@ export class DriverService {
             },
         };
     }
+    async updateStatus(driverId: string, status: 'online' | 'offline' | 'busy') {
+        const driver = await this.prisma.driver.findUnique({ where: { id: driverId } });
+        if (!driver) {
+            return { success: false, message: 'Driver not found' };
+        }
+
+        const updated = await this.prisma.driver.update({
+            where: { id: driverId },
+            data: { status, last_seen_at: new Date() },
+        });
+
+        return {
+            success: true,
+            message: 'Status yangilandi',
+            data: { id: updated.id, status: updated.status },
+        };
+    }
+
     async deleteDriver(id: string) {
         const driver = await this.prisma.user.findUnique({ where: { id, role: UserRole.driver } });
 

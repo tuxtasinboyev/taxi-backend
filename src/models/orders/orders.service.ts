@@ -38,11 +38,22 @@ export class OrdersService {
         const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
         if (!user) throw new NotFoundException('User not found');
 
-        const nearbyDrivers = await this.redisGeo.getNearbyDrivers(
+        const allNearby = await this.redisGeo.getNearbyDrivers(
             Number(dto.start_lat),
             Number(dto.start_lng),
             5
         );
+
+        // Faqat online (bo'sh) haydovchilarni filterlash — busy va offline o'tkazilmaydi
+        const onlineNearbyIds = allNearby.map(d => d.driverId);
+        const onlineDriversInDb = onlineNearbyIds.length
+            ? await this.prisma.driver.findMany({
+                where: { id: { in: onlineNearbyIds }, status: 'online' },
+                select: { id: true },
+              })
+            : [];
+        const onlineSet = new Set(onlineDriversInDb.map(d => d.id));
+        const nearbyDrivers = allNearby.filter(d => onlineSet.has(d.driverId));
         const rule = await this.prisma.pricingRule.findFirst({
             where: { is_active: true },
             orderBy: { updated_at: 'desc' },
@@ -135,6 +146,25 @@ export class OrdersService {
                 price: finalPrice,
                 promo_applied: promoApplied,
             });
+        }
+
+        const nearbyDriverIds = nearbyDrivers.map(d => d.driverId);
+        const notifPayload = {
+            title_uz: 'Yangi buyurtma!',
+            title_ru: 'Новый заказ!',
+            title_en: 'New order!',
+            message_uz: `Narx: ${finalPrice.toFixed(0)} so'm — Qabul qilasizmi?`,
+            message_ru: `Цена: ${finalPrice.toFixed(0)} сум — Принять?`,
+            message_en: `Price: ${finalPrice.toFixed(0)} sum — Accept?`,
+            type: 'order_request',
+            data: { order_id: order.id },
+        };
+
+        if (nearbyDriverIds.length > 0) {
+            this.notificationService.sendToSpecificDrivers(nearbyDriverIds, notifPayload).catch(() => null);
+        } else {
+            // Yaqin haydovchi topilmasa — barcha online haydovchilarga yuboriladi
+            this.notificationService.sendToAllOnlineDrivers(notifPayload).catch(() => null);
         }
 
         this.socketGateway.emitToAdminOrders('admin:order:created', {
@@ -382,6 +412,12 @@ export class OrdersService {
             data: { driver_id: driverId, status: 'accepted' },
         });
 
+        // Haydovchi band bo'ldi
+        await this.prisma.driver.update({
+            where: { id: driverId },
+            data: { status: 'busy' },
+        });
+
         this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
 
         // Yo'lovchiga push notification
@@ -405,6 +441,38 @@ export class OrdersService {
         });
 
         return updatedOrder;
+    }
+
+    async rejectOrder(driverId: string, orderId: string) {
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new NotFoundException('Order not found');
+
+        if (order.status !== 'pending')
+            throw new ConflictException('Bu buyurtmani rad etib bo\'lmaydi');
+
+        // Haydovchiga socket orqali xabar (rad etildi)
+        this.socketGateway.emitToDriver(driverId, 'order:rejected_by_you', { order_id: orderId });
+
+        // Yo'lovchiga push: haydovchi rad etdi, boshqa qidirilmoqda
+        this.notificationService.sendToUser(order.user_id, {
+            title_uz: 'Haydovchi rad etdi',
+            title_ru: 'Водитель отказался',
+            title_en: 'Driver rejected',
+            message_uz: 'Haydovchi buyurtmangizni rad etdi, boshqa haydovchi qidirilmoqda',
+            message_ru: 'Водитель отказался от заказа, ищем другого водителя',
+            message_en: 'Driver rejected your order, searching for another driver',
+            type: 'order_rejected',
+            data: { order_id: orderId },
+        }).catch(() => null);
+
+        this.socketGateway.emitToAdminOrders('admin:order:rejected', {
+            order_id: orderId,
+            driver_id: driverId,
+            status: order.status,
+            rejected_at: new Date(),
+        });
+
+        return { success: true, message: 'Buyurtma rad etildi' };
     }
 
     async completeOrder(orderId: string) {
@@ -448,6 +516,12 @@ export class OrdersService {
         const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status: 'completed', finished_at: new Date() },
+        });
+
+        // Haydovchi yana bo'sh
+        await this.prisma.driver.update({
+            where: { id: order.driver_id },
+            data: { status: 'online' },
         });
 
         await this.prisma.payment.updateMany({
@@ -568,6 +642,14 @@ export class OrdersService {
         }
 
         if (status === 'cancelled') {
+            // Haydovchi band bo'lgan bo'lsa, uni yana online qilamiz
+            if (updated.driver_id) {
+                await this.prisma.driver.update({
+                    where: { id: updated.driver_id },
+                    data: { status: 'online' },
+                });
+            }
+
             this.notificationService.sendToUser(updated.user_id, {
                 title_uz: 'Buyurtma bekor qilindi',
                 title_ru: 'Заказ отменён',

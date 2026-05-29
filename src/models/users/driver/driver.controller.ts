@@ -170,6 +170,56 @@ export class DriverController {
         return this.driverService.updateMe(user.id, data, photoUrl);
     }
 
+    @UseGuards(GuardService)
+    @ApiBearerAuth()
+    @Patch('status')
+    @ApiOperation({ summary: "Haydovchi o'z statusini o'zgartiradi (online / offline)" })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['status'],
+            properties: {
+                status: { type: 'string', enum: ['online', 'offline'], example: 'online' },
+            },
+        },
+    })
+    @ApiResponse({ status: 200, description: 'Status yangilandi' })
+    async updateMyStatus(
+        @UserData() user: JwtPayload,
+        @Body('status') status: 'online' | 'offline',
+    ) {
+        if (!['online', 'offline'].includes(status)) {
+            throw new Error("Status faqat 'online' yoki 'offline' bo'lishi mumkin");
+        }
+        return this.driverService.updateStatus(user.id, status);
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiBearerAuth()
+    @Patch(':id/status')
+    @ApiOperation({ summary: 'Admin istalgan haydovchi statusini o\'zgartiradi (online / offline / busy)' })
+    @ApiParam({ name: 'id', description: 'Driver user ID' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['status'],
+            properties: {
+                status: { type: 'string', enum: ['online', 'offline', 'busy'], example: 'offline' },
+            },
+        },
+    })
+    @ApiResponse({ status: 200, description: 'Status yangilandi' })
+    async updateDriverStatus(
+        @Param('id') id: string,
+        @Body('status') status: 'online' | 'offline' | 'busy',
+    ) {
+        if (!['online', 'offline', 'busy'].includes(status)) {
+            throw new Error("Status noto'g'ri");
+        }
+        return this.driverService.updateStatus(id, status);
+    }
+
     @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
