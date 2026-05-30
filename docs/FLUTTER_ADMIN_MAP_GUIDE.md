@@ -22,7 +22,7 @@ Admin App                        Backend                        Drivers
 ```
 
 > **Nima uchun HTTP va WS ajratilgan?**
-> Driver har 2–5 sekundda pozitsiya yuboradi. Har safar DB dan order+stats
+> Driver a har 2–5 sekunddpozitsiya yuboradi. Har safar DB dan order+stats
 > yuklash = 100 haydovchi × 20 query/min = 2000 query/min. Shuning uchun
 > to'liq ma'lumot bir marta HTTP orqali olinadi, faqat koordinatlar WS orqali yangilanadi.
 
