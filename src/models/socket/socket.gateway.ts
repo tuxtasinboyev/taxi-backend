@@ -22,7 +22,7 @@ interface ConnectedClient {
     transports: ['websocket', 'polling'],
 })
 export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
-    @WebSocketServer() server: Server;
+    @WebSocketServer() server!: Server;
     private logger = new Logger('SocketGateway');
 
     private clients = new Map<string, ConnectedClient>();
