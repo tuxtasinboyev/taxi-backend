@@ -250,6 +250,54 @@ export class NotificationService {
         return { success: true };
     }
 
+    // Muayyan haydovchilar (user ID ro'yxati) ga Firebase notification
+    async sendToSpecificDrivers(driverUserIds: string[], payload: NotificationPayload): Promise<void> {
+        if (!driverUserIds.length) return;
+
+        const devices = await this.prisma.deviceToken.findMany({
+            where: { user_id: { in: driverUserIds } },
+            select: { token: true, lang: true },
+        });
+
+        if (!devices.length) return;
+
+        const byLang: Record<string, string[]> = { uz: [], ru: [], en: [] };
+        for (const d of devices) {
+            const l = d.lang in byLang ? d.lang : 'uz';
+            byLang[l].push(d.token);
+        }
+
+        for (const lang of ['uz', 'ru', 'en']) {
+            if (!byLang[lang].length) continue;
+            const title = this.pickLang(
+                { uz: payload.title_uz, ru: payload.title_ru, en: payload.title_en },
+                lang,
+            );
+            const body = this.pickLang(
+                { uz: payload.message_uz, ru: payload.message_ru, en: payload.message_en },
+                lang,
+            );
+            const chunks = this.chunkArray(byLang[lang], 500);
+            for (const chunk of chunks) {
+                await this.firebase.sendToMultipleTokens(chunk, title, body, {
+                    type: payload.type,
+                    ...(payload.data ?? {}),
+                });
+            }
+        }
+    }
+
+    // Barcha online haydovchilarga Firebase notification (nearby topilmaganda fallback)
+    async sendToAllOnlineDrivers(payload: NotificationPayload): Promise<void> {
+        const onlineDrivers = await this.prisma.driver.findMany({
+            where: { status: 'online' },
+            select: { id: true },
+        });
+
+        const ids = onlineDrivers.map(d => d.id);
+        await this.sendToSpecificDrivers(ids, payload);
+    }
+
     // Device tokenni o'chirish (logout)
     async removeDeviceToken(userId: string, token: string) {
         await this.prisma.deviceToken.deleteMany({
