@@ -36,7 +36,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     handleConnection(client: Socket) {
-        this.logger.log(`✅ Socket connected: ${client.id}`);
+        this.logger.log(`✅ Socket connected: ${client.id}, role=${this.extractRole(client) ?? 'unknown'}`);
         if (this.isPrivilegedRole(this.extractRole(client))) {
             client.join('admin:orders');
         }
@@ -57,6 +57,23 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.debug(
             `👤 Registered socket ${socket.id} for userId=${payload.userId} / driverId=${payload.driverId}`,
         );
+    }
+
+    @SubscribeMessage('register')
+    handleRegister(
+        @MessageBody() data: { userId?: string; driverId?: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        this.logger.debug(
+            `🆔 Incoming register on /ws: socket=${client.id}, userId=${data?.userId}, driverId=${data?.driverId}`,
+        );
+        this.registerUser(client, data ?? {});
+        client.emit('registered', {
+            success: true,
+            socketId: client.id,
+            userId: data?.userId ?? null,
+            driverId: data?.driverId ?? null,
+        });
     }
 
     @SubscribeMessage('admin:register')
@@ -126,20 +143,30 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     emitToDriver(driverId: string, event: string, data: any) {
+        let delivered = 0;
         for (const client of this.clients.values()) {
             if (client.driverId === driverId) {
                 this.server.to(client.socketId).emit(event, data);
-                this.logger.debug(`📤 Emit to driver ${driverId}: ${event}`);
+                delivered += 1;
+                this.logger.debug(`📤 Emit to driver ${driverId}: ${event} -> socket ${client.socketId}`);
             }
+        }
+        if (delivered === 0) {
+            this.logger.warn(`⚠️ No registered driver sockets found for driverId=${driverId} while emitting ${event}`);
         }
     }
 
     emitToUser(userId: string, event: string, data: any) {
+        let delivered = 0;
         for (const client of this.clients.values()) {
             if (client.userId === userId) {
                 this.server.to(client.socketId).emit(event, data);
-                this.logger.debug(`📤 Emit to user ${userId}: ${event}`);
+                delivered += 1;
+                this.logger.debug(`📤 Emit to user ${userId}: ${event} -> socket ${client.socketId}`);
             }
+        }
+        if (delivered === 0) {
+            this.logger.warn(`⚠️ No registered user sockets found for userId=${userId} while emitting ${event}`);
         }
     }
 

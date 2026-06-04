@@ -43,6 +43,9 @@ export class OrdersService {
             Number(dto.start_lng),
             5
         );
+        this.logger.log(
+            `📍 Nearby drivers from Redis for user=${dto.user_id}: count=${allNearby.length}, start=(${dto.start_lat}, ${dto.start_lng})`,
+        );
 
         // Faqat online (bo'sh) haydovchilarni filterlash — busy va offline o'tkazilmaydi
         const onlineNearbyIds = allNearby.map(d => d.driverId);
@@ -54,6 +57,9 @@ export class OrdersService {
             : [];
         const onlineSet = new Set(onlineDriversInDb.map(d => d.id));
         const nearbyDrivers = allNearby.filter(d => onlineSet.has(d.driverId));
+        this.logger.log(
+            `🚕 Online nearby drivers after DB filter: count=${nearbyDrivers.length}, ids=${nearbyDrivers.map(d => d.driverId).join(', ') || 'none'}`,
+        );
         const rule = await this.prisma.pricingRule.findFirst({
             where: { is_active: true },
             orderBy: { updated_at: 'desc' },
@@ -140,6 +146,9 @@ export class OrdersService {
         });
 
         for (const driver of nearbyDrivers) {
+            this.logger.log(
+                `📨 Sending order:request order=${order.id} to driver=${driver.driverId}, distanceKm=${driver.distanceKm}`,
+            );
             this.socketGateway.emitToDriver(driver.driverId, 'order:request', {
                 order_id: order.id,
                 distance_km: driver.distanceKm,
@@ -164,6 +173,7 @@ export class OrdersService {
             this.notificationService.sendToSpecificDrivers(nearbyDriverIds, notifPayload).catch(() => null);
         } else {
             // Yaqin haydovchi topilmasa — barcha online haydovchilarga yuboriladi
+            this.logger.warn(`⚠️ No nearby online drivers found for order=${order.id}. Falling back to push for all online drivers.`);
             this.notificationService.sendToAllOnlineDrivers(notifPayload).catch(() => null);
         }
 

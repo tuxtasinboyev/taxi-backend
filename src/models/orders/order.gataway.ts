@@ -8,7 +8,11 @@
     import { OrdersService } from '../orders/orders.service';
 import { SocketGateway } from '../socket/socket.gateway';
 
-    @WebSocketGateway({ cors: true })
+    @WebSocketGateway({
+        cors: { origin: '*' },
+        namespace: '/ws',
+        transports: ['websocket', 'polling'],
+    })
     export class OrdersGateway {
         constructor(private readonly ordersService: OrdersService,private socketGateway: SocketGateway) { }
         @SubscribeMessage('order:accept')
@@ -25,13 +29,4 @@ import { SocketGateway } from '../socket/socket.gateway';
                 message: 'Siz bu zakasni qabul qildingiz ✅',
             });
         }
-        @SubscribeMessage('register')
-        handleRegister(
-            @MessageBody() data: { userId?: string; driverId?: string },
-            @ConnectedSocket() client: Socket,
-        ) {
-            this.socketGateway.registerUser(client, data);
-        }
-
-
     }
