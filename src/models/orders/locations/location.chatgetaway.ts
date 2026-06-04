@@ -52,44 +52,50 @@ export class LocationGateway
   @SubscribeMessage('driver:register')
   handleDriverRegister(
     client: Socket,
-    data: { driverId: string; orderId: string },
+    data: { driverId: string; orderId?: string | null },
   ) {
-    client.join(`order:${data.orderId}`);
     client.join(`driver:${data.driverId}`);
 
-    const order = this.activeOrders.get(data.orderId) ?? {
-      passengerId: null,
-      driverId: null,
-    };
-    this.activeOrders.set(data.orderId, { ...order, driverId: data.driverId });
+    if (data.orderId) {
+      client.join(`order:${data.orderId}`);
+
+      const order = this.activeOrders.get(data.orderId) ?? {
+        passengerId: null,
+        driverId: null,
+      };
+      this.activeOrders.set(data.orderId, { ...order, driverId: data.driverId });
+
+      this.server.to(`order:${data.orderId}`).emit('driver:accepted', {
+        driverId: data.driverId,
+        message: 'Haydovchi yolingizga chiqdi',
+      });
+    }
 
     this.logger.debug(
-      `Driver registered: ${data.driverId} -> Order: ${data.orderId}`,
+      `Driver registered: ${data.driverId} -> Order: ${data.orderId ?? 'idle'}`,
     );
-
-    this.server.to(`order:${data.orderId}`).emit('driver:accepted', {
-      driverId: data.driverId,
-      message: 'Haydovchi yolingizga chiqdi',
-    });
   }
 
   // Yo'lovchi order roomga qo'shiladi
   @SubscribeMessage('passenger:register')
   handlePassengerRegister(
     client: Socket,
-    data: { userId: string; orderId: string },
+    data: { userId: string; orderId?: string | null },
   ) {
-    client.join(`order:${data.orderId}`);
     client.join(`user:${data.userId}`);
 
-    const order = this.activeOrders.get(data.orderId) ?? {
-      driverId: null,
-      passengerId: null,
-    };
-    this.activeOrders.set(data.orderId, { ...order, passengerId: data.userId });
+    if (data.orderId) {
+      client.join(`order:${data.orderId}`);
+
+      const order = this.activeOrders.get(data.orderId) ?? {
+        driverId: null,
+        passengerId: null,
+      };
+      this.activeOrders.set(data.orderId, { ...order, passengerId: data.userId });
+    }
 
     this.logger.debug(
-      `Passenger registered: ${data.userId} -> Order: ${data.orderId}`,
+      `Passenger registered: ${data.userId} -> Order: ${data.orderId ?? 'none'}`,
     );
   }
 
@@ -123,9 +129,11 @@ export class LocationGateway
       data.lng,
     );
 
-    this.server
-      .to(`order:${data.orderId}`)
-      .emit('location:driver-updated', payload);
+    if (data.orderId) {
+      this.server
+        .to(`order:${data.orderId}`)
+        .emit('location:driver-updated', payload);
+    }
     // Admin xaritasiga ham yuborish
     this.server.to('admin:map').emit('admin:driver-updated', payload);
     this.logger.debug(`Driver ${data.driverId} -> ${data.lat}, ${data.lng}`);
@@ -155,9 +163,11 @@ export class LocationGateway
     this.lastLocations.set(`passenger:${data.userId}`, payload);
 
     // Faqat shu order roomiga yuborish
-    this.server
-      .to(`order:${data.orderId}`)
-      .emit('location:passenger-updated', payload);
+    if (data.orderId) {
+      this.server
+        .to(`order:${data.orderId}`)
+        .emit('location:passenger-updated', payload);
+    }
     this.logger.debug(`Passenger ${data.userId} -> ${data.lat}, ${data.lng}`);
   }
 
