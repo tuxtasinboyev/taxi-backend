@@ -23,6 +23,7 @@ import {
     ApiTags,
     PartialType,
 } from '@nestjs/swagger';
+import { IsEnum, IsNotEmpty } from 'class-validator';
 import { OrderStatus, UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { UserData } from 'src/common/decorators/auth.decorators';
@@ -47,6 +48,8 @@ class UpdateStatusDto {
         ],
         example: OrderStatus.on_the_way,
     })
+    @IsNotEmpty()
+    @IsEnum(OrderStatus)
     status: OrderStatus;
 }
 
