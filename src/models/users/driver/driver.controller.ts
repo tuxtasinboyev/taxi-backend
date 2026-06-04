@@ -83,16 +83,6 @@ export class DriverController {
             language,
         });
     }
-    @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
-    @ApiBearerAuth()
-    @Get(':id')
-    @ApiOperation({ summary: 'Get driver by ID (admin)' })
-    @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
-    async getDriverById(@Param('id') id: string) {
-        return this.driverService.getDriverById(id);
-    }
-
     @UseGuards(GuardService)
     @ApiBearerAuth()
     @Get('me')
@@ -102,40 +92,6 @@ export class DriverController {
     async getMe(@UserData() user: JwtPayload) {
         return this.driverService.getMe(user.id);
     }
-    @UseGuards(GuardService, RoleGuardService)
-    @Role('admin')
-    @ApiBearerAuth()
-    @Patch(':id')
-    @ApiOperation({ summary: 'Update existing driver (admin)' })
-    @ApiConsumes('multipart/form-data')
-    @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
-    @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
-    @ApiBody({
-        description: 'Driver update data (partial)',
-        schema: {
-            type: 'object',
-            properties: {
-                name: { type: 'string', example: 'Azizbek' },
-                phone: { type: 'string', example: '+998901234567' },
-                email: { type: 'string', example: 'azizbek@example.com' },
-                password: { type: 'string', example: 'newPassword' },
-                car_model: { type: 'string', example: 'Malibu' },
-                car_color: { type: 'string', example: 'Qora' },
-                car_number: { type: 'string', example: '80A777AA' },
-                language: { type: 'string', enum: ['uz', 'ru', 'en'] },
-                photo: { type: 'string', format: 'binary' },
-            },
-        },
-    })
-    async updateDriver(
-        @Param('id') id: string,
-        @Body() data: Partial<CreateDriverDto>,
-        @UploadedFile() file?: Express.Multer.File,
-    ) {
-        const photoUrl = file?.filename;
-        return this.driverService.updatateDriver(id, data, photoUrl);
-    }
-
     @UseGuards(GuardService)
     @ApiBearerAuth()
     @Patch('me')
@@ -192,6 +148,50 @@ export class DriverController {
             throw new Error("Status faqat 'online' yoki 'offline' bo'lishi mumkin");
         }
         return this.driverService.updateStatus(user.id, status);
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
+    @ApiBearerAuth()
+    @Patch(':id')
+    @ApiOperation({ summary: 'Update existing driver (admin)' })
+    @ApiConsumes('multipart/form-data')
+    @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
+    @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
+    @ApiBody({
+        description: 'Driver update data (partial)',
+        schema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string', example: 'Azizbek' },
+                phone: { type: 'string', example: '+998901234567' },
+                email: { type: 'string', example: 'azizbek@example.com' },
+                password: { type: 'string', example: 'newPassword' },
+                car_model: { type: 'string', example: 'Malibu' },
+                car_color: { type: 'string', example: 'Qora' },
+                car_number: { type: 'string', example: '80A777AA' },
+                language: { type: 'string', enum: ['uz', 'ru', 'en'] },
+                photo: { type: 'string', format: 'binary' },
+            },
+        },
+    })
+    async updateDriver(
+        @Param('id') id: string,
+        @Body() data: Partial<CreateDriverDto>,
+        @UploadedFile() file?: Express.Multer.File,
+    ) {
+        const photoUrl = file?.filename;
+        return this.driverService.updatateDriver(id, data, photoUrl);
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin')
+    @ApiBearerAuth()
+    @Get(':id')
+    @ApiOperation({ summary: 'Get driver by ID (admin)' })
+    @ApiParam({ name: 'id', description: 'Driver ID', example: 'b123d-uuid' })
+    async getDriverById(@Param('id') id: string) {
+        return this.driverService.getDriverById(id);
     }
 
     @UseGuards(GuardService, RoleGuardService)
