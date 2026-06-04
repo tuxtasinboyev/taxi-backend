@@ -151,9 +151,16 @@ export class OrdersService {
             );
             this.socketGateway.emitToDriver(driver.driverId, 'order:request', {
                 order_id: order.id,
+                user_id: order.user_id,
+                passenger_name: user.name_uz || user.name_ru || user.email || user.phone,
+                passenger_phone: user.phone,
                 distance_km: driver.distanceKm,
                 price: finalPrice,
                 promo_applied: promoApplied,
+                start_lat: Number(order.start_lat),
+                start_lng: Number(order.start_lng),
+                end_lat: Number(order.end_lat),
+                end_lng: Number(order.end_lng),
             });
         }
 

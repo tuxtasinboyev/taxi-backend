@@ -55,7 +55,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
 
         this.logger.debug(
-            `👤 Registered socket ${socket.id} for userId=${payload.userId} / driverId=${payload.driverId}`,
+            `👤 Registered socket ${socket.id} for userId=${payload.userId} / driverId=${payload.driverId}. clients=${this.clients.size}`,
         );
     }
 
