@@ -72,10 +72,25 @@ export class RedisGeoService {
                 'WITHDIST'
             )) as [string, string][];
 
-            return result ? result.map(([id, distance]) => ({
-                driverId: id,
-                distanceKm: parseFloat(distance),
-            })) : [];
+            if (!result || result.length === 0) {
+                return [];
+            }
+
+            const nearbyDrivers = await Promise.all(
+                result.map(async ([id, distance]) => {
+                    const pos = (await redis.geopos(this.GEO_KEY, id)) as [[string, string] | null];
+                    const coords = pos?.[0];
+
+                    return {
+                        driverId: id,
+                        distanceKm: parseFloat(distance),
+                        lat: coords ? parseFloat(coords[1]) : null,
+                        lng: coords ? parseFloat(coords[0]) : null,
+                    };
+                }),
+            );
+
+            return nearbyDrivers;
         } catch (error) {
             console.error('Redis Georadius Error:', error.message);
             throw error;

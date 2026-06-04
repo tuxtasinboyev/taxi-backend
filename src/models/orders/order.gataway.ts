@@ -18,19 +18,11 @@ import { SocketGateway } from '../socket/socket.gateway';
         ) {
             const order = await this.ordersService.acceptOrder(data.driverId, data.orderId);
 
-            
             // ✅ Haydovchiga tasdiq (faqat o‘ziga)
             client.emit('order:accepted', {
                 order_id: order.id,
                 status: order.status,
                 message: 'Siz bu zakasni qabul qildingiz ✅',
-            });
-
-            // ✅ Yo‘lovchiga ham xabar (safar qabul qilindi)
-            this.socketGateway.emitToUser(order.user_id, 'order:accepted', {
-                order_id: order.id,
-                driver_id: data.driverId,
-                message: 'Haydovchi zakasni qabul qildi',
             });
         }
         @SubscribeMessage('register')

@@ -407,10 +407,21 @@ export class OrdersService {
         if (order.status !== 'pending')
             throw new ConflictException('Order already accepted or processed');
 
-        const updatedOrder = await this.prisma.order.update({
+        await this.prisma.order.update({
             where: { id: orderId },
             data: { driver_id: driverId, status: 'accepted' },
         });
+
+        const updatedOrder = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                driver: true,
+            },
+        });
+
+        if (!updatedOrder) {
+            throw new NotFoundException('Accepted order not found');
+        }
 
         // Haydovchi band bo'ldi
         await this.prisma.driver.update({
@@ -419,6 +430,22 @@ export class OrdersService {
         });
 
         this.socketGateway.broadcastExceptDriver(driverId, 'order:cancelled', { order_id: orderId });
+
+        this.socketGateway.emitToUser(order.user_id, 'order:accepted', {
+            order_id: updatedOrder.id,
+            status: updatedOrder.status,
+            driver_id: driverId,
+            driver: {
+                id: driver.id,
+                name: driver.name_uz ?? driver.name_ru ?? driver.name_en ?? 'Haydovchi',
+                full_name: driver.name_uz ?? driver.name_ru ?? driver.name_en ?? 'Haydovchi',
+                phone: driver.phone,
+                car_number: updatedOrder.driver?.car_number ?? null,
+                car_model: updatedOrder.driver?.car_model_uz ?? updatedOrder.driver?.car_model_ru ?? updatedOrder.driver?.car_model_en ?? null,
+                car_color: updatedOrder.driver?.car_color_uz ?? updatedOrder.driver?.car_color_ru ?? updatedOrder.driver?.car_color_en ?? null,
+                rating: updatedOrder.driver?.rating ? Number(updatedOrder.driver.rating) : null,
+            },
+        });
 
         // Yo'lovchiga push notification
         this.notificationService.sendToUser(order.user_id, {
