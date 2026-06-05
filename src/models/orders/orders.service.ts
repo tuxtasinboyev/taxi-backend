@@ -576,6 +576,17 @@ export class OrdersService {
         this.socketGateway.emitToDriver(order.driver_id, 'order:completed', {
             order_id: order.id,
             amount: driverEarn,
+            total_price: Number(order.price),
+            payment_method: paymentMethod ?? 'cash',
+            status: 'completed',
+        });
+
+        this.socketGateway.emitToUser(order.user_id, 'order:completed', {
+            order_id: order.id,
+            amount: Number(order.price),
+            total_price: Number(order.price),
+            payment_method: paymentMethod ?? 'cash',
+            status: 'completed',
         });
 
         this.socketGateway.emitToAdminOrders('admin:order:completed', {
