@@ -217,6 +217,41 @@ export class OrdersController {
             throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
         }
     }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('driver')
+    @Get('driver/history')
+    @ApiOperation({ summary: 'Haydovchi uchun buyurtmalar tarixi' })
+    @ApiQuery({ name: 'language', required: true, enum: ['uz', 'ru', 'en'], description: 'Language for names' })
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+    @ApiQuery({ name: 'date_from', required: false, type: String, description: 'ISO start date' })
+    @ApiQuery({ name: 'date_to', required: false, type: String, description: 'ISO end date' })
+    @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Order status filter' })
+    async getDriverHistory(
+        @UserData() user: JwtPayload,
+        @Query('language') language: Language,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('date_from') dateFrom?: string,
+        @Query('date_to') dateTo?: string,
+        @Query('status') status?: OrderStatus,
+    ) {
+        if (!language) {
+            throw new BadRequestException('Language query parameter is required');
+        }
+
+        return this.ordersService.getDriverOrderHistory(
+            user.id,
+            page ? parseInt(page, 10) : 1,
+            limit ? parseInt(limit, 10) : 20,
+            language,
+            dateFrom,
+            dateTo,
+            status,
+        );
+    }
+
     @UseGuards(GuardService, RoleGuardService)
     @Role('admin','superadmin')
     @Get('get-all-orders')

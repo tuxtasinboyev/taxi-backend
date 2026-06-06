@@ -1066,6 +1066,125 @@ export class OrdersService {
             },
         };
     }
+    async getDriverOrderHistory(
+        driverId: string,
+        page: number,
+        limit: number,
+        language: Language,
+        dateFrom?: string,
+        dateTo?: string,
+        status?: OrderStatus,
+    ) {
+        const whereClause: Prisma.OrderWhereInput = {
+            driver_id: driverId,
+        };
+
+        if (status) {
+            whereClause.status = status;
+        }
+
+        if (dateFrom || dateTo) {
+            const createdAtFilter: Prisma.DateTimeFilter = {};
+            if (dateFrom) {
+                const from = new Date(dateFrom);
+                if (Number.isNaN(from.getTime())) {
+                    throw new BadRequestException('date_from is invalid');
+                }
+                createdAtFilter.gte = from;
+            }
+            if (dateTo) {
+                const to = new Date(dateTo);
+                if (Number.isNaN(to.getTime())) {
+                    throw new BadRequestException('date_to is invalid');
+                }
+                createdAtFilter.lte = to;
+            }
+            whereClause.created_at = createdAtFilter;
+        }
+
+        const pageNumber = Math.max(page, 1);
+        const limitNumber = Math.min(Math.max(limit, 1), 100);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        const [totalItems, orders] = await Promise.all([
+            this.prisma.order.count({ where: whereClause }),
+            this.prisma.order.findMany({
+                where: whereClause,
+                skip,
+                take: limitNumber,
+                orderBy: { created_at: 'desc' },
+                include: {
+                    user: true,
+                    taxiCategory: true,
+                    payment: true,
+                    fare: true,
+                    reviews: true,
+                },
+            }),
+        ]);
+
+        const data = orders.map(order => {
+            const passengerName =
+                language === 'uz' ? order.user.name_uz :
+                    language === 'ru' ? order.user.name_ru :
+                        language === 'en' ? order.user.name_en :
+                            order.user.name_uz;
+
+            const categoryName = order.taxiCategory
+                ? language === 'uz' ? order.taxiCategory.name_uz :
+                    language === 'ru' ? order.taxiCategory.name_ru :
+                        language === 'en' ? order.taxiCategory.name_en :
+                            order.taxiCategory.name_uz
+                : null;
+
+            return {
+                id: order.id,
+                user_id: order.user_id,
+                driver_id: order.driver_id,
+                start_lat: order.start_lat,
+                start_lng: order.start_lng,
+                end_lat: order.end_lat,
+                end_lng: order.end_lng,
+                distance_km: order.distance_km,
+                duration_min: order.duration_min,
+                price: order.price,
+                status: order.status,
+                created_at: order.created_at,
+                updated_at: order.updated_at,
+                finished_at: order.finished_at,
+                taxiCategoryId: order.taxiCategoryId,
+                passenger: {
+                    id: order.user.id,
+                    name: passengerName,
+                    phone: order.user.phone,
+                    email: order.user.email,
+                    profile_photo: order.user.profile_photo,
+                },
+                taxiCategory: order.taxiCategory
+                    ? {
+                        id: order.taxiCategory.id,
+                        name: categoryName,
+                    }
+                    : null,
+                payment: order.payment,
+                fare: order.fare,
+                reviews_count: order.reviews.length,
+            };
+        });
+
+        return {
+            success: true,
+            message: 'Driver orders retrieved successfully',
+            data,
+            pagination: {
+                totalItems,
+                totalPages: Math.ceil(totalItems / limitNumber),
+                currentPage: pageNumber,
+                itemsPerPage: limitNumber,
+            },
+        };
+    }
+
     async getOrderById(orderId: string, language: Language) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
