@@ -746,6 +746,78 @@ export class OrdersService {
         });
     }
 
+    async getActiveOrder(userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new NotFoundException('User not found');
+
+        const order = await this.prisma.order.findFirst({
+            where: {
+                user_id: userId,
+                status: { in: ['pending', 'accepted', 'on_the_way'] },
+            },
+            orderBy: { created_at: 'desc' },
+            include: {
+                payment: true,
+                taxiCategory: true,
+                driver: {
+                    include: {
+                        user: true,
+                    },
+                },
+            },
+        });
+
+        if (!order) {
+            return null;
+        }
+
+        return {
+            id: order.id,
+            status: order.status,
+            start_lat: order.start_lat,
+            start_lng: order.start_lng,
+            end_lat: order.end_lat,
+            end_lng: order.end_lng,
+            start_address: (order as any).start_address ?? null,
+            end_address: (order as any).end_address ?? null,
+            distance_km: order.distance_km,
+            duration_min: order.duration_min,
+            price: order.price,
+            created_at: order.created_at,
+            updated_at: order.updated_at,
+            finished_at: order.finished_at,
+            taxiCategoryId: order.taxiCategoryId,
+            payment: order.payment,
+            taxiCategory: order.taxiCategory
+                ? {
+                    id: order.taxiCategory.id,
+                    name: order.taxiCategory.name_uz ?? order.taxiCategory.name_ru ?? order.taxiCategory.name_en,
+                }
+                : null,
+            driver: order.driver
+                ? {
+                    id: order.driver.id,
+                    full_name:
+                        order.driver.user.name_uz ??
+                        order.driver.user.name_ru ??
+                        order.driver.user.name_en ??
+                        'Haydovchi',
+                    phone: order.driver.user.phone,
+                    car_number: order.driver.car_number,
+                    car_model:
+                        order.driver.car_model_uz ??
+                        order.driver.car_model_ru ??
+                        order.driver.car_model_en,
+                    car_color:
+                        order.driver.car_color_uz ??
+                        order.driver.car_color_ru ??
+                        order.driver.car_color_en,
+                    rating: order.driver.rating ? Number(order.driver.rating) : null,
+                }
+                : null,
+        };
+    }
+
     async updateOrder(orderId: string, dto: UpdateOrderDto, reqUser: { id: string, role: string }) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },

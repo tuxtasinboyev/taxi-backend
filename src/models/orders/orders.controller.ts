@@ -218,6 +218,23 @@ export class OrdersController {
         }
     }
 
+    @UseGuards(GuardService)
+    @Get('active')
+    @ApiOperation({ summary: "Foydalanuvchining joriy faol zakazini olish" })
+    async getActiveOrder(@Req() req: Request) {
+        try {
+            const user = req['user'] as { id: string };
+            const order = await this.ordersService.getActiveOrder(user.id);
+            return {
+                success: true,
+                message: order == null ? 'Faol zakaz topilmadi' : 'Faol zakaz topildi',
+                data: order,
+            };
+        } catch (error) {
+            throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+        }
+    }
+
     @UseGuards(GuardService, RoleGuardService)
     @Role('driver')
     @Get('driver/history')
