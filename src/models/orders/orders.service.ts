@@ -414,6 +414,69 @@ export class OrdersService {
         });
     }
 
+    async getPendingNearbyOrdersForDriver(
+        driverId: string,
+        lat: number,
+        lng: number,
+        radiusKm = 5,
+    ) {
+        const driver = await this.prisma.user.findUnique({ where: { id: driverId } });
+        if (!driver) {
+            throw new NotFoundException('Driver not found');
+        }
+
+        const pendingOrders = await this.prisma.order.findMany({
+            where: {
+                status: 'pending',
+                driver_id: null,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name_uz: true,
+                        name_ru: true,
+                        name_en: true,
+                        phone: true,
+                    },
+                },
+            },
+            orderBy: { created_at: 'desc' },
+            take: 25,
+        });
+
+        return pendingOrders
+            .map(order => {
+                const distanceKm = this.calcDistanceKm(
+                    lat,
+                    lng,
+                    Number(order.start_lat),
+                    Number(order.start_lng),
+                );
+
+                return {
+                    order_id: order.id,
+                    user_id: order.user_id,
+                    passenger_name:
+                        order.user.name_uz ||
+                        order.user.name_ru ||
+                        order.user.name_en ||
+                        order.user.phone ||
+                        'Yo\'lovchi',
+                    passenger_phone: order.user.phone,
+                    distance_km: +distanceKm.toFixed(1),
+                    price: Number(order.price).toFixed(0),
+                    start_lat: Number(order.start_lat),
+                    start_lng: Number(order.start_lng),
+                    end_lat: Number(order.end_lat),
+                    end_lng: Number(order.end_lng),
+                    created_at: order.created_at,
+                };
+            })
+            .filter(order => order.distance_km <= radiusKm)
+            .sort((a, b) => a.distance_km - b.distance_km);
+    }
+
     async acceptOrder(driverId: string, orderId: string) {
         const driver = await this.prisma.user.findUnique({ where: { id: driverId } });
         if (!driver) throw new NotFoundException('Driver not found');

@@ -270,6 +270,36 @@ export class OrdersController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
+    @Role('driver')
+    @Get('driver/pending-nearby')
+    @ApiOperation({ summary: 'Driver online bo`lganda yaqin pending orderlarni olish' })
+    @ApiQuery({ name: 'lat', required: true, type: Number })
+    @ApiQuery({ name: 'lng', required: true, type: Number })
+    @ApiQuery({ name: 'radiusKm', required: false, type: Number })
+    async getDriverPendingNearbyOrders(
+        @UserData() user: JwtPayload,
+        @Query('lat') lat: string,
+        @Query('lng') lng: string,
+        @Query('radiusKm') radiusKm?: string,
+    ) {
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lng);
+        const radius = radiusKm ? parseFloat(radiusKm) : 5;
+
+        if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+            throw new BadRequestException('lat va lng majburiy va son bo`lishi kerak');
+        }
+
+        const data = await this.ordersService.getPendingNearbyOrdersForDriver(
+            user.id,
+            latitude,
+            longitude,
+            radius,
+        );
+        return { success: true, data };
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin','superadmin')
     @Get('get-all-orders')
     @ApiOperation({ summary: 'Barcha zakaslarni olish (admin uchun)' })
