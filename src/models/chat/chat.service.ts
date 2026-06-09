@@ -117,6 +117,7 @@ export class ChatService {
 
     async sendMessage(sendMessageDto: SendMessageDto, userId: string) {
         const chat = await this.ensureChatWritable(sendMessageDto.chat_id, userId);
+        if (!chat) throw new NotFoundException('Chat topilmadi');
 
         const messageData: any = {
             chat_id: sendMessageDto.chat_id,
@@ -448,10 +449,13 @@ export class ChatService {
                 },
             });
 
-            return this.prisma.chat.findUnique({
+            const updatedChat = await this.prisma.chat.findUnique({
                 where: { id: chatId },
                 include: { participants: true },
             });
+
+            if (!updatedChat) throw new NotFoundException('Chat topilmadi');
+            return updatedChat;
         }
 
         throw new ForbiddenException("Bu chatga xabar yuborishga ruxsatingiz yo'q");
