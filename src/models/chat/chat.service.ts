@@ -16,6 +16,7 @@ import {
     SendMessageDto,
 } from './dto/chat.dto';
 import { Language } from 'src/utils/helper';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class ChatService {
@@ -32,7 +33,10 @@ export class ChatService {
         email: true,
     } as const;
 
-    constructor(private prisma: DatabaseService) {}
+    constructor(
+        private prisma: DatabaseService,
+        private readonly notificationService: NotificationService,
+    ) {}
 
     async getOrCreateChatForOrder(createChatDto: CreateChatDto, userId: string) {
         const order = await this.prisma.order.findUnique({
@@ -112,7 +116,7 @@ export class ChatService {
     }
 
     async sendMessage(sendMessageDto: SendMessageDto, userId: string) {
-        await this.ensureChatWritable(sendMessageDto.chat_id, userId);
+        const chat = await this.ensureChatWritable(sendMessageDto.chat_id, userId);
 
         const messageData: any = {
             chat_id: sendMessageDto.chat_id,
@@ -137,6 +141,39 @@ export class ChatService {
             where: { id: sendMessageDto.chat_id },
             data: { updated_at: new Date() },
         });
+
+        const senderName =
+            message.sender?.[`name_${sendMessageDto.language}`] ||
+            message.sender?.name_uz ||
+            message.sender?.name_ru ||
+            message.sender?.name_en ||
+            'Yula Taxi';
+        const messagePreview =
+            sendMessageDto.message.length > 120
+                ? `${sendMessageDto.message.slice(0, 117)}...`
+                : sendMessageDto.message;
+        const recipientIds = chat.participants
+            .map((participant) => participant.user_id)
+            .filter((participantId) => participantId !== userId);
+
+        await Promise.allSettled(
+            recipientIds.map((recipientId) =>
+                this.notificationService.sendToUser(recipientId, {
+                    title_uz: `Yangi xabar: ${senderName}`,
+                    title_ru: `Новое сообщение: ${senderName}`,
+                    title_en: `New message: ${senderName}`,
+                    message_uz: messagePreview,
+                    message_ru: messagePreview,
+                    message_en: messagePreview,
+                    type: 'chat',
+                    data: {
+                        chat_id: sendMessageDto.chat_id,
+                        sender_id: userId,
+                        message_id: message.id,
+                    },
+                }),
+            ),
+        );
 
         this.logger.log(`Xabar yuborildi: ${message.id}`);
         return this.formatMessageResponse(message, sendMessageDto.language);
