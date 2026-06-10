@@ -60,7 +60,7 @@ export class PaymentController {
     @ApiResponse({ status: 200, description: 'List of payments' })
     async getAllMyPayments(
         @UserData() user: JwtPayload,
-        @Query('language') language: Language,
+        @Query('language') language?: Language,
     ) {
         return this.paymentService.getAllMyPayments(user.id, language);
     }
@@ -71,11 +71,11 @@ export class PaymentController {
     @ApiOperation({ summary: 'Get a single payment by ID (user or driver)' })
     @ApiResponse({ status: 200, description: 'Payment details' })
     @ApiParam({ name: 'payment_id', required: true })
-    @ApiQuery({ name: 'language', required: true, enum: ['uz', 'ru', 'en'] })
+    @ApiQuery({ name: 'language', required: false, enum: ['uz', 'ru', 'en'] })
     async getMyPaymentById(
         @UserData() user: JwtPayload,
         @Param('payment_id') payment_id: string,
-        @Query('language') language: Language,
+        @Query('language') language?: Language,
     ) {
         return this.paymentService.getMyPaymentById(user.id, payment_id, language);
     }
@@ -112,5 +112,39 @@ export class PaymentController {
     @ApiResponse({ status: 404, description: 'Payment not found' })
     async updateActive(@Param('id') id: string) {
         return this.paymentService.updateActive(id);
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiBearerAuth()
+    @Get('admin/list')
+    @ApiOperation({ summary: 'Admin: paginated payments with commission stats' })
+    @ApiQuery({ name: 'driver_id', required: false })
+    @ApiQuery({ name: 'period', required: false, enum: ['today', 'tomorrow', 'weekly', 'range'] })
+    @ApiQuery({ name: 'from', required: false })
+    @ApiQuery({ name: 'to', required: false })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiResponse({ status: 200, description: 'Payments list with stats' })
+    async getAdminPayments(@Query() query: any) {
+        return this.paymentService.getAdminPayments({
+            driver_id: query.driver_id,
+            period: query.period,
+            from: query.from,
+            to: query.to,
+            page: query.page ? Number(query.page) : 1,
+            limit: query.limit ? Number(query.limit) : 20,
+        });
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiBearerAuth()
+    @Get('admin/:id')
+    @ApiOperation({ summary: 'Admin: get single payment detail' })
+    @ApiParam({ name: 'id', type: String })
+    @ApiResponse({ status: 200, description: 'Payment detail' })
+    async getAdminPaymentById(@Param('id') id: string) {
+        return this.paymentService.getAdminPaymentById(id);
     }
 }

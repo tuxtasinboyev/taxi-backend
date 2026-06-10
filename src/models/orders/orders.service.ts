@@ -275,7 +275,8 @@ export class OrdersService {
 
     // Admin tomonidan order yaratish (istalgan user uchun)
     async adminCreateOrder(dto: {
-        user_id: string;
+        user_id?: string;
+        client_phone?: string;
         start_lat: number;
         start_lng: number;
         end_lat: number;
@@ -285,7 +286,19 @@ export class OrdersService {
         payment_method?: PaymentMethod;
         driver_id?: string;
     }) {
-        const result = await this.createOrder(dto);
+        let userId = dto.user_id;
+
+        if (!userId && dto.client_phone) {
+            const user = await this.prisma.user.findFirst({
+                where: { phone: { contains: dto.client_phone, mode: 'insensitive' } },
+            });
+            if (!user) throw new NotFoundException(`Telefon raqami bo'yicha foydalanuvchi topilmadi: ${dto.client_phone}`);
+            userId = user.id;
+        }
+
+        if (!userId) throw new BadRequestException('user_id yoki client_phone kiritilishi kerak');
+
+        const result = await this.createOrder({ ...dto, user_id: userId });
 
         if (dto.driver_id) {
             await this.assignDriver(result.order.id, dto.driver_id);
@@ -631,9 +644,18 @@ export class OrdersService {
             data: { status: 'online' },
         });
 
+        const orderPrice = Number(order.price);
+        const commissionAmt = orderPrice * 0.05;
+        const netAmt = orderPrice * 0.95;
+
         await this.prisma.payment.updateMany({
             where: { order_id: orderId },
-            data: { status: 'success', paid_at: new Date() },
+            data: {
+                status: 'success',
+                paid_at: new Date(),
+                commission_amount: commissionAmt,
+                net_amount: netAmt,
+            },
         });
 
         this.socketGateway.emitToDriver(order.driver_id, 'order:completed', {
@@ -1013,7 +1035,7 @@ export class OrdersService {
     async getAllOrders(
         page: number = 1,
         limit: number = 10,
-        language: Language,
+        language?: Language,
         search?: string,
         driver_id?: string,
         user_id?: string,
@@ -1024,9 +1046,8 @@ export class OrdersService {
         const whereClause: any = {};
 
         if (search) {
-            const nameField = language === 'uz' ? 'name_uz' :
-                language === 'ru' ? 'name_ru' :
-                    language === 'en' ? 'name_en' : 'name_uz';
+            const nameField = language === 'ru' ? 'name_ru' :
+                language === 'en' ? 'name_en' : 'name_uz';
 
             whereClause.OR = [
                 { user: { [nameField]: { contains: search, mode: 'insensitive' } } },
@@ -1164,6 +1185,21 @@ export class OrdersService {
 
             return {
                 ...order,
+                // Active language (or uz fallback)
+                user_name: userName,
+                user_name_uz: order.user.name_uz,
+                user_name_ru: order.user.name_ru,
+                user_name_en: order.user.name_en,
+                user_phone: order.user.phone,
+                driver_name: driverName,
+                driver_name_uz: order.driver?.user?.name_uz ?? null,
+                driver_name_ru: order.driver?.user?.name_ru ?? null,
+                driver_name_en: order.driver?.user?.name_en ?? null,
+                driver_phone: order.driver?.user?.phone ?? null,
+                category: categoryName,
+                category_uz: order.taxiCategory?.name_uz ?? null,
+                category_ru: order.taxiCategory?.name_ru ?? null,
+                category_en: order.taxiCategory?.name_en ?? null,
                 user: {
                     ...order.user,
                     name: userName,
@@ -1205,7 +1241,7 @@ export class OrdersService {
         driverId: string,
         page: number,
         limit: number,
-        language: Language,
+        language?: Language,
         dateFrom?: string,
         dateTo?: string,
         status?: OrderStatus,
@@ -1274,6 +1310,7 @@ export class OrdersService {
 
             return {
                 id: order.id,
+                order_number: order.order_number,
                 user_id: order.user_id,
                 driver_id: order.driver_id,
                 start_lat: order.start_lat,
@@ -1320,7 +1357,7 @@ export class OrdersService {
         };
     }
 
-    async getOrderById(orderId: string, language: Language) {
+    async getOrderById(orderId: string, language?: Language) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
             include: {
@@ -1413,6 +1450,20 @@ export class OrdersService {
             message: 'Order retrieved successfully',
             data: {
                 ...order,
+                user_name: userName,
+                user_name_uz: order.user.name_uz,
+                user_name_ru: order.user.name_ru,
+                user_name_en: order.user.name_en,
+                user_phone: order.user.phone,
+                driver_name: driverName,
+                driver_name_uz: order.driver?.user?.name_uz ?? null,
+                driver_name_ru: order.driver?.user?.name_ru ?? null,
+                driver_name_en: order.driver?.user?.name_en ?? null,
+                driver_phone: order.driver?.user?.phone ?? null,
+                category: categoryName,
+                category_uz: order.taxiCategory?.name_uz ?? null,
+                category_ru: order.taxiCategory?.name_ru ?? null,
+                category_en: order.taxiCategory?.name_en ?? null,
                 user: { ...order.user, name: userName },
                 driver: order.driver
                     ? {

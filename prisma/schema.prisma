@@ -32,6 +32,23 @@ model User {
   chatMembers     ChatParticipant[]
   driverLocations DriverLocation[]
   userLocations   UserLocation[]
+  driverRequests  DriverRequest[]
+}
+
+model DriverRequest {
+  id             String              @id @default(uuid())
+  user_id        String
+  full_name      String              @db.VarChar(100)
+  phone          String              @db.VarChar(20)
+  car_model      String              @db.VarChar(100)
+  car_number     String              @db.VarChar(20)
+  license_number String              @db.VarChar(50)
+  status         DriverRequestStatus @default(pending)
+  reject_reason  String?
+  created_at     DateTime            @default(now())
+  updated_at     DateTime            @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model Driver {
@@ -109,9 +126,10 @@ model TaxiCategory {
 }
 
 model Order {
-  id        String  @id @default(uuid())
-  user_id   String
-  driver_id String?
+  id           String  @id @default(uuid())
+  order_number Int     @default(autoincrement())
+  user_id      String
+  driver_id    String?
 
   start_lat Decimal @db.Decimal(10, 6)
   start_lng Decimal @db.Decimal(10, 6)
@@ -186,11 +204,13 @@ model PricingRule {
 }
 
 model Payment {
-  id       String        @id @default(uuid())
-  order_id String        @unique
-  amount   Decimal       @db.Decimal(10, 2)
-  method   PaymentMethod @default(payme)
-  status   PaymentStatus @default(pending)
+  id                String        @id @default(uuid())
+  order_id          String        @unique
+  amount            Decimal       @db.Decimal(10, 2)
+  commission_amount Decimal?      @db.Decimal(10, 2)
+  net_amount        Decimal?      @db.Decimal(10, 2)
+  method            PaymentMethod @default(payme)
+  status            PaymentStatus @default(pending)
 
   paid_at    DateTime?
   created_at DateTime  @default(now())
@@ -389,4 +409,10 @@ enum MessageType {
   text
   image
   system
+}
+
+enum DriverRequestStatus {
+  pending
+  accepted
+  rejected
 }

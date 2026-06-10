@@ -118,7 +118,7 @@ export class PaymentService {
 
     }
 
-    async getAllMyPayments(user_id: string, language: Language) {
+    async getAllMyPayments(user_id: string, language?: Language) {
         // Foydalanuvchi mavjudligini tekshirish
         const existsUser = await this.prisma.user.findUnique({
             where: { id: user_id },
@@ -138,16 +138,11 @@ export class PaymentService {
             orderBy: { paid_at: 'desc' },
         });
 
-        // Tilga qarab ma'lumotlarni map qilish
         const mappedPayments = payments.map(payment => {
-            let taxiCategoryName: string | null = null;
-            if (payment.order.taxiCategory) {
-                taxiCategoryName =
-                    language === 'uz' ? payment.order.taxiCategory.name_uz :
-                        language === 'ru' ? payment.order.taxiCategory.name_ru :
-                            language === 'en' ? payment.order.taxiCategory.name_en :
-                                payment.order.taxiCategory.name_uz;
-            }
+            const cat = payment.order.taxiCategory;
+            const taxiCategoryName = cat
+                ? (language === 'ru' ? cat.name_ru : language === 'en' ? cat.name_en : cat.name_uz)
+                : null;
 
             return {
                 id: payment.id,
@@ -157,6 +152,9 @@ export class PaymentService {
                 paid_at: payment.paid_at,
                 order_id: payment.order_id,
                 taxiCategoryName,
+                taxiCategoryName_uz: cat?.name_uz ?? null,
+                taxiCategoryName_ru: cat?.name_ru ?? null,
+                taxiCategoryName_en: cat?.name_en ?? null,
             };
         });
 
@@ -166,7 +164,7 @@ export class PaymentService {
             data: mappedPayments,
         };
     }
-    async getMyPaymentById(user_id: string, payment_id: string, language: Language) {
+    async getMyPaymentById(user_id: string, payment_id: string, language?: Language) {
         // Foydalanuvchi mavjudligini tekshirish
         const existsUser = await this.prisma.user.findUnique({
             where: { id: user_id },
@@ -188,15 +186,10 @@ export class PaymentService {
 
         if (!payment) throw new NotFoundException('Payment not found');
 
-        // Tilga qarab TaxiCategory nomi
-        let taxiCategoryName: string | null = null;
-        if (payment.order.taxiCategory) {
-            taxiCategoryName =
-                language === 'uz' ? payment.order.taxiCategory.name_uz :
-                    language === 'ru' ? payment.order.taxiCategory.name_ru :
-                        language === 'en' ? payment.order.taxiCategory.name_en :
-                            payment.order.taxiCategory.name_uz;
-        }
+        const cat = payment.order.taxiCategory;
+        const taxiCategoryName = cat
+            ? (language === 'ru' ? cat.name_ru : language === 'en' ? cat.name_en : cat.name_uz)
+            : null;
 
         return {
             success: true,
@@ -209,6 +202,9 @@ export class PaymentService {
                 paid_at: payment.paid_at,
                 order_id: payment.order_id,
                 taxiCategoryName,
+                taxiCategoryName_uz: cat?.name_uz ?? null,
+                taxiCategoryName_ru: cat?.name_ru ?? null,
+                taxiCategoryName_en: cat?.name_en ?? null,
             },
         };
     }
@@ -272,5 +268,146 @@ export class PaymentService {
         }
     }
 
+    async getAdminPayments(params: {
+        driver_id?: string;
+        period?: string;
+        from?: string;
+        to?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        const { driver_id, period, from, to, page = 1, limit = 20 } = params;
 
+        const where: any = { status: 'success' };
+
+        if (driver_id) {
+            where.order = { driver_id };
+        }
+
+        const now = new Date();
+        if (period === 'today') {
+            const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const end = new Date(start.getTime() + 86400000);
+            where.paid_at = { gte: start, lt: end };
+        } else if (period === 'tomorrow') {
+            const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            const end = new Date(start.getTime() + 86400000);
+            where.paid_at = { gte: start, lt: end };
+        } else if (period === 'weekly') {
+            const start = new Date(now.getTime() - 7 * 86400000);
+            where.paid_at = { gte: start };
+        } else if (period === 'range' && from) {
+            const start = new Date(from);
+            const end = to ? new Date(new Date(to).getTime() + 86400000) : now;
+            where.paid_at = { gte: start, lt: end };
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [total, payments, stats] = await Promise.all([
+            this.prisma.payment.count({ where }),
+            this.prisma.payment.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { paid_at: 'desc' },
+                include: {
+                    order: {
+                        include: {
+                            driver: {
+                                include: {
+                                    user: { select: { name_uz: true, name_ru: true, phone: true } },
+                                    taxiCategory: { select: { name_uz: true } },
+                                },
+                            },
+                            user: { select: { name_uz: true, name_ru: true, phone: true } },
+                        },
+                    },
+                },
+            }),
+            this.prisma.payment.aggregate({
+                where,
+                _sum: { amount: true, commission_amount: true, net_amount: true },
+                _count: { id: true },
+            }),
+        ]);
+
+        return {
+            success: true,
+            data: payments.map((p) => ({
+                id: p.id,
+                amount: Number(p.amount),
+                commission_amount: Number(p.commission_amount ?? 0),
+                net_amount: Number(p.net_amount ?? 0),
+                method: p.method,
+                status: p.status,
+                paid_at: p.paid_at,
+                created_at: p.created_at,
+                order_id: p.order_id,
+                order_status: p.order.status,
+                order_price: Number(p.order.price),
+                driver_name: p.order.driver?.user?.name_uz ?? null,
+                driver_phone: p.order.driver?.user?.phone ?? null,
+                category: p.order.driver?.taxiCategory?.name_uz ?? null,
+                user_name: p.order.user?.name_uz ?? null,
+                user_phone: p.order.user?.phone ?? null,
+            })),
+            stats: {
+                total_orders_sum: Number(stats._sum.amount ?? 0),
+                total_commission: Number(stats._sum.commission_amount ?? 0),
+                total_net: Number(stats._sum.net_amount ?? 0),
+                orders_count: stats._count.id,
+            },
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
+    }
+
+    async getAdminPaymentById(id: string) {
+        const p = await this.prisma.payment.findUnique({
+            where: { id },
+            include: {
+                order: {
+                    include: {
+                        driver: {
+                            include: {
+                                user: { select: { name_uz: true, name_ru: true, phone: true } },
+                                taxiCategory: { select: { name_uz: true } },
+                            },
+                        },
+                        user: { select: { name_uz: true, name_ru: true, phone: true } },
+                    },
+                },
+            },
+        });
+        if (!p) throw new NotFoundException('Payment not found');
+
+        return {
+            success: true,
+            data: {
+                id: p.id,
+                amount: Number(p.amount),
+                commission_amount: Number(p.commission_amount ?? 0),
+                net_amount: Number(p.net_amount ?? 0),
+                commission_rate: 5,
+                method: p.method,
+                status: p.status,
+                paid_at: p.paid_at,
+                created_at: p.created_at,
+                order_id: p.order_id,
+                order_status: p.order.status,
+                order_price: Number(p.order.price),
+                order_distance: Number(p.order.distance_km ?? 0),
+                driver_name: p.order.driver?.user?.name_uz ?? null,
+                driver_phone: p.order.driver?.user?.phone ?? null,
+                category: p.order.driver?.taxiCategory?.name_uz ?? null,
+                user_name: p.order.user?.name_uz ?? null,
+                user_phone: p.order.user?.phone ?? null,
+            },
+        };
+    }
 }

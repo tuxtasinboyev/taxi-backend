@@ -92,7 +92,8 @@ export class OrdersController {
             type: 'object',
             required: ['user_id', 'start_lat', 'start_lng', 'end_lat', 'end_lng'],
             properties: {
-                user_id: { type: 'string', example: 'uuid-user' },
+                user_id: { type: 'string', example: 'uuid-user', description: 'user_id yoki client_phone biridan biri kerak' },
+                client_phone: { type: 'string', example: '+998901234567', description: 'Telefon raqami orqali foydalanuvchi topiladi' },
                 start_lat: { type: 'number', example: 41.2995 },
                 start_lng: { type: 'number', example: 69.2401 },
                 end_lat: { type: 'number', example: 41.3110 },
@@ -104,7 +105,7 @@ export class OrdersController {
             },
         },
     })
-    async adminCreateOrder(@Body() dto: CreateOrderDto & { driver_id?: string }) {
+    async adminCreateOrder(@Body() dto: CreateOrderDto & { driver_id?: string; client_phone?: string }) {
         const result = await this.ordersService.adminCreateOrder(dto);
         return { success: true, message: 'Admin tomonidan order yaratildi', data: result };
     }
@@ -239,7 +240,7 @@ export class OrdersController {
     @Role('driver')
     @Get('driver/history')
     @ApiOperation({ summary: 'Haydovchi uchun buyurtmalar tarixi' })
-    @ApiQuery({ name: 'language', required: true, enum: ['uz', 'ru', 'en'], description: 'Language for names' })
+    @ApiQuery({ name: 'language', required: false, enum: ['uz', 'ru', 'en'], description: 'Language for names (optional, returns all if omitted)' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
     @ApiQuery({ name: 'date_from', required: false, type: String, description: 'ISO start date' })
@@ -247,17 +248,13 @@ export class OrdersController {
     @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Order status filter' })
     async getDriverHistory(
         @UserData() user: JwtPayload,
-        @Query('language') language: Language,
+        @Query('language') language?: Language,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
         @Query('date_from') dateFrom?: string,
         @Query('date_to') dateTo?: string,
         @Query('status') status?: OrderStatus,
     ) {
-        if (!language) {
-            throw new BadRequestException('Language query parameter is required');
-        }
-
         return this.ordersService.getDriverOrderHistory(
             user.id,
             page ? parseInt(page, 10) : 1,
@@ -303,7 +300,7 @@ export class OrdersController {
     @Role('admin','superadmin')
     @Get('get-all-orders')
     @ApiOperation({ summary: 'Barcha zakaslarni olish (admin uchun)' })
-    @ApiQuery({ name: 'language', required: true, enum: ['uz', 'ru', 'en'], description: 'Language for names' })
+    @ApiQuery({ name: 'language', required: false, enum: ['uz', 'ru', 'en'], description: 'Language for names (optional, returns all if omitted)' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
     @ApiQuery({ name: 'search', required: false, type: String, description: 'Search text' })
@@ -313,7 +310,7 @@ export class OrdersController {
     @ApiQuery({ name: 'price_max', required: false, type: Number, description: 'Maximum price filter' })
     @ApiQuery({ name: 'status', required: false, enum: OrderStatus, description: 'Order status filter' })
     async getAllOrders(
-        @Query('language') language: Language,
+        @Query('language') language?: Language,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
         @Query('search') search?: string,
@@ -324,10 +321,6 @@ export class OrdersController {
         @Query('status') status?: OrderStatus,
 
     ) {
-        if (!language) {
-            throw new BadRequestException('Language query parameter is required');
-        }
-
         const pageNumber = page ? parseInt(page, 10) : 1;
         const limitNumber = limit ? parseInt(limit, 10) : 10;
         const priceMinNumber = price_min ? parseFloat(price_min) : undefined;
@@ -351,15 +344,11 @@ export class OrdersController {
     @Get(':id')
     @ApiOperation({ summary: 'id buyicha zakaslarni olish (admin uchun)' })
     @ApiParam({ name: 'id', required: true, description: 'Order ID' })
-    @ApiQuery({ name: 'language', required: true, enum: ['uz', 'ru', 'en'], description: 'Language for names' })
+    @ApiQuery({ name: 'language', required: false, enum: ['uz', 'ru', 'en'], description: 'Language for names (optional, returns all if omitted)' })
     async getOrderById(
-        @Query('language') language: Language,
         @Param('id') orderId: string,
+        @Query('language') language?: Language,
     ) {
-        if (!language) {
-            throw new BadRequestException('Language query parameter is required');
-        }
-
         return this.ordersService.getOrderById(orderId, language);
     }
 

@@ -217,8 +217,20 @@ export class NotificationService {
     }
 
     // Admin: barcha notificationlar
-    async adminGetAll(page = 1, limit = 20, userId?: string) {
-        const where = userId ? { user_id: userId } : {};
+    async adminGetAll(
+        page = 1,
+        limit = 20,
+        userId?: string,
+        type?: string,
+        isRead?: boolean,
+        userRole?: string,
+    ) {
+        const where: any = {};
+        if (userId) where.user_id = userId;
+        if (type) where.type = type;
+        if (isRead !== undefined) where.is_read = isRead;
+        if (userRole) where.user = { is: { role: userRole } };
+
         const offset = (Math.max(page, 1) - 1) * limit;
         const total = await this.prisma.notification.count({ where });
         const rows = await this.prisma.notification.findMany({

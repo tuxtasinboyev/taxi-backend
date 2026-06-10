@@ -11,6 +11,7 @@ import { ChatModule } from './chat/chat.module';
 import { ReviewModule } from './review/review.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationModule } from './notification/notification.module';
+import { DriverRequestModule } from './driver-request/driver-request.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationModule } from './notification/notification.module';
     ReviewModule,
     DashboardModule,
     NotificationModule,
+    DriverRequestModule,
   ],
   providers: [SocketGateway],
   exports: [SocketGateway],

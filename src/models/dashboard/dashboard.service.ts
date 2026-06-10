@@ -31,6 +31,8 @@ export interface SummaryCardsResponse {
         today_revenue: number;
         month_revenue: number;
         revenue_growth_percent: number | null;
+        today_commission: number;
+        month_commission: number;
         new_users_this_month: number;
         user_growth_percent: number | null;
         online_drivers: number;
@@ -149,10 +151,19 @@ export interface RecentOrder {
     distance_km: number;
     created_at: Date;
     user_name: string | null;
+    user_name_uz?: string | null;
+    user_name_ru?: string | null;
+    user_name_en?: string | null;
     user_phone: string;
     driver_name: string | null;
+    driver_name_uz?: string | null;
+    driver_name_ru?: string | null;
+    driver_name_en?: string | null;
     driver_phone: string | null;
     category: string | null;
+    category_uz?: string | null;
+    category_ru?: string | null;
+    category_en?: string | null;
     payment_method: PaymentMethod | null;
     payment_status: PaymentStatus | null;
 }
@@ -166,6 +177,9 @@ export interface RecentPayment {
     created_at: Date;
     order_id: string;
     user_name: string | null;
+    user_name_uz?: string | null;
+    user_name_ru?: string | null;
+    user_name_en?: string | null;
     user_phone: string | null;
 }
 
@@ -410,11 +424,13 @@ export class DashboardService {
                         select: {
                             id: true,
                             name_uz: true,
+                            name_ru: true,
+                            name_en: true,
                             phone: true,
                             profile_photo: true,
                         },
                     },
-                    taxiCategory: { select: { name_uz: true } },
+                    taxiCategory: { select: { name_uz: true, name_ru: true, name_en: true } },
                 },
             }),
             this.prisma.driver.aggregate({ _avg: { rating: true } }),
@@ -428,14 +444,23 @@ export class DashboardService {
                 return {
                     id: driver.id,
                     name: driver.user.name_uz,
+                    name_uz: driver.user.name_uz,
+                    name_ru: driver.user.name_ru,
+                    name_en: driver.user.name_en,
                     phone: driver.user.phone,
                     photo: driver.user.profile_photo,
                     car_model: driver.car_model_uz,
+                    car_model_uz: driver.car_model_uz,
+                    car_model_ru: driver.car_model_ru,
+                    car_model_en: driver.car_model_en,
                     car_number: driver.car_number,
                     status: driver.status,
                     rating: Number(driver.rating ?? 0),
                     completed_orders: completedOrders,
                     category: driver.taxiCategory?.name_uz ?? null,
+                    category_uz: driver.taxiCategory?.name_uz ?? null,
+                    category_ru: driver.taxiCategory?.name_ru ?? null,
+                    category_en: driver.taxiCategory?.name_en ?? null,
                 };
             }),
         );
@@ -470,6 +495,8 @@ export class DashboardService {
                 select: {
                     id: true,
                     name_uz: true,
+                    name_ru: true,
+                    name_en: true,
                     phone: true,
                     profile_photo: true,
                     _count: { select: { orders: true } },
@@ -502,6 +529,9 @@ export class DashboardService {
                 top_passengers: topPassengers.map((u) => ({
                     id: u.id,
                     name: u.name_uz,
+                    name_uz: u.name_uz,
+                    name_ru: u.name_ru,
+                    name_en: u.name_en,
                     phone: u.phone,
                     photo: u.profile_photo,
                     total_orders: u._count.orders,
@@ -522,9 +552,9 @@ export class DashboardService {
                     price: true,
                     distance_km: true,
                     created_at: true,
-                    user: { select: { name_uz: true, phone: true } },
-                    driver: { select: { user: { select: { name_uz: true, phone: true } } } },
-                    taxiCategory: { select: { name_uz: true } },
+                    user: { select: { name_uz: true, name_ru: true, name_en: true, phone: true } },
+                    driver: { select: { user: { select: { name_uz: true, name_ru: true, name_en: true, phone: true } } } },
+                    taxiCategory: { select: { name_uz: true, name_ru: true, name_en: true } },
                     payment: { select: { method: true, status: true } },
                 },
             }),
@@ -539,7 +569,7 @@ export class DashboardService {
                     paid_at: true,
                     created_at: true,
                     order_id: true,
-                    order: { select: { user: { select: { name_uz: true, phone: true } } } },
+                    order: { select: { user: { select: { name_uz: true, name_ru: true, name_en: true, phone: true } } } },
                 },
             }),
             this.prisma.user.findMany({
@@ -569,10 +599,19 @@ export class DashboardService {
                         distance_km: Number(o.distance_km),
                         created_at: o.created_at,
                         user_name: o.user.name_uz,
+                        user_name_uz: o.user.name_uz,
+                        user_name_ru: o.user.name_ru,
+                        user_name_en: o.user.name_en,
                         user_phone: o.user.phone,
                         driver_name: o.driver?.user?.name_uz ?? null,
+                        driver_name_uz: o.driver?.user?.name_uz ?? null,
+                        driver_name_ru: o.driver?.user?.name_ru ?? null,
+                        driver_name_en: o.driver?.user?.name_en ?? null,
                         driver_phone: o.driver?.user?.phone ?? null,
                         category: o.taxiCategory?.name_uz ?? null,
+                        category_uz: o.taxiCategory?.name_uz ?? null,
+                        category_ru: o.taxiCategory?.name_ru ?? null,
+                        category_en: o.taxiCategory?.name_en ?? null,
                         payment_method: o.payment?.method ?? null,
                         payment_status: o.payment?.status ?? null,
                     }),
@@ -587,6 +626,9 @@ export class DashboardService {
                         created_at: p.created_at,
                         order_id: p.order_id,
                         user_name: p.order?.user?.name_uz ?? null,
+                        user_name_uz: p.order?.user?.name_uz ?? null,
+                        user_name_ru: p.order?.user?.name_ru ?? null,
+                        user_name_en: p.order?.user?.name_en ?? null,
                         user_phone: p.order?.user?.phone ?? null,
                     }),
                 ),
@@ -609,6 +651,8 @@ export class DashboardService {
             todayRevenue,
             monthRevenue,
             lastMonthRevenue,
+            todayCommission,
+            monthCommission,
             newUsersMonth,
             newUsersLastMonth,
             onlineDrivers,
@@ -633,6 +677,14 @@ export class DashboardService {
                     status: PaymentStatus.success,
                     paid_at: { gte: lastMonthStart, lte: lastMonthEnd },
                 },
+            }),
+            this.prisma.payment.aggregate({
+                _sum: { commission_amount: true },
+                where: { status: PaymentStatus.success, paid_at: { gte: todayStart } },
+            }),
+            this.prisma.payment.aggregate({
+                _sum: { commission_amount: true },
+                where: { status: PaymentStatus.success, paid_at: { gte: monthStart } },
             }),
             this.prisma.user.count({ where: { created_at: { gte: monthStart } } }),
             this.prisma.user.count({
@@ -659,6 +711,8 @@ export class DashboardService {
                 today_revenue: Number(todayRevenue._sum.amount ?? 0),
                 month_revenue: currMonthRevenue,
                 revenue_growth_percent: calcGrowth(currMonthRevenue, prevMonthRevenue),
+                today_commission: Number(todayCommission._sum.commission_amount ?? 0),
+                month_commission: Number(monthCommission._sum.commission_amount ?? 0),
                 new_users_this_month: newUsersMonth,
                 user_growth_percent: calcGrowth(newUsersMonth, newUsersLastMonth),
                 online_drivers: onlineDrivers,

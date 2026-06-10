@@ -13,11 +13,11 @@ import { UpdateReviewDto } from './dto/update.review';
 export class ReviewService {
     constructor(private readonly prisma: DatabaseService) {}
 
-    private nameField(lang: Language): 'name_uz' | 'name_ru' | 'name_en' {
+    private nameField(lang?: Language): 'name_uz' | 'name_ru' | 'name_en' {
         return lang === Language.ru ? 'name_ru' : lang === Language.en ? 'name_en' : 'name_uz';
     }
 
-    private commentField(lang: Language): 'comment_uz' | 'comment_ru' | 'comment_en' {
+    private commentField(lang?: Language): 'comment_uz' | 'comment_ru' | 'comment_en' {
         return lang === Language.ru
             ? 'comment_ru'
             : lang === Language.en
@@ -133,7 +133,7 @@ export class ReviewService {
     async getAllReviews(
         page: number = 1,
         limit: number = 10,
-        language: Language = Language.uz,
+        language?: Language,
         order_id?: string,
         from_user_id?: string,
         to_user_id?: string,
@@ -165,8 +165,8 @@ export class ReviewService {
             }),
         ]);
 
-        const nf = this.nameField(language);
-        const cf = this.commentField(language);
+        const nf = language ? this.nameField(language) : 'name_uz';
+        const cf = language ? this.commentField(language) : 'comment_uz';
 
         return {
             success: true,
@@ -174,13 +174,30 @@ export class ReviewService {
                 id: r.id,
                 rating: r.rating,
                 comment: r[cf] ?? null,
+                comment_uz: r.comment_uz,
+                comment_ru: r.comment_ru,
+                comment_en: r.comment_en,
                 is_flagged: r.is_flagged,
                 flag_reason: r.flag_reason,
                 created_at: r.created_at,
                 updated_at: r.updated_at,
                 order: r.order,
-                from: { id: r.from.id, name: r.from[nf], photo: r.from.profile_photo },
-                to: { id: r.to.id, name: r.to[nf], photo: r.to.profile_photo },
+                from: {
+                    id: r.from.id,
+                    name: r.from[nf],
+                    name_uz: r.from.name_uz,
+                    name_ru: r.from.name_ru,
+                    name_en: r.from.name_en,
+                    photo: r.from.profile_photo,
+                },
+                to: {
+                    id: r.to.id,
+                    name: r.to[nf],
+                    name_uz: r.to.name_uz,
+                    name_ru: r.to.name_ru,
+                    name_en: r.to.name_en,
+                    photo: r.to.profile_photo,
+                },
             })),
             pagination: {
                 totalItems,
@@ -191,7 +208,7 @@ export class ReviewService {
         };
     }
 
-    async getReviewById(id: string, language: Language = Language.uz) {
+    async getReviewById(id: string, language?: Language) {
         const review = await this.prisma.review.findUnique({
             where: { id },
             include: {
@@ -202,8 +219,8 @@ export class ReviewService {
         });
         if (!review) throw new NotFoundException('Baho topilmadi');
 
-        const nf = this.nameField(language);
-        const cf = this.commentField(language);
+        const nf = language ? this.nameField(language) : 'name_uz';
+        const cf = language ? this.commentField(language) : 'comment_uz';
 
         return {
             success: true,
@@ -211,18 +228,35 @@ export class ReviewService {
                 id: review.id,
                 rating: review.rating,
                 comment: review[cf] ?? null,
+                comment_uz: review.comment_uz,
+                comment_ru: review.comment_ru,
+                comment_en: review.comment_en,
                 is_flagged: review.is_flagged,
                 flag_reason: review.flag_reason,
                 created_at: review.created_at,
                 updated_at: review.updated_at,
                 order: review.order,
-                from: { id: review.from.id, name: review.from[nf], photo: review.from.profile_photo },
-                to: { id: review.to.id, name: review.to[nf], photo: review.to.profile_photo },
+                from: {
+                    id: review.from.id,
+                    name: review.from[nf],
+                    name_uz: review.from.name_uz,
+                    name_ru: review.from.name_ru,
+                    name_en: review.from.name_en,
+                    photo: review.from.profile_photo,
+                },
+                to: {
+                    id: review.to.id,
+                    name: review.to[nf],
+                    name_uz: review.to.name_uz,
+                    name_ru: review.to.name_ru,
+                    name_en: review.to.name_en,
+                    photo: review.to.profile_photo,
+                },
             },
         };
     }
 
-    async getMyReviews(userId: string, language: Language = Language.uz) {
+    async getMyReviews(userId: string, language?: Language) {
         const reviews = await this.prisma.review.findMany({
             where: { OR: [{ from_user_id: userId }, { to_user_id: userId }] },
             orderBy: { created_at: 'desc' },
@@ -233,8 +267,8 @@ export class ReviewService {
             },
         });
 
-        const nf = this.nameField(language);
-        const cf = this.commentField(language);
+        const nf = language ? this.nameField(language) : 'name_uz';
+        const cf = language ? this.commentField(language) : 'comment_uz';
 
         return {
             success: true,
@@ -242,13 +276,30 @@ export class ReviewService {
                 id: r.id,
                 rating: r.rating,
                 comment: r[cf] ?? null,
+                comment_uz: r.comment_uz,
+                comment_ru: r.comment_ru,
+                comment_en: r.comment_en,
                 is_flagged: r.is_flagged,
                 created_at: r.created_at,
                 updated_at: r.updated_at,
                 direction: r.from_user_id === userId ? 'sent' : 'received',
                 order: r.order,
-                from: { id: r.from.id, name: r.from[nf], photo: r.from.profile_photo },
-                to: { id: r.to.id, name: r.to[nf], photo: r.to.profile_photo },
+                from: {
+                    id: r.from.id,
+                    name: r.from[nf],
+                    name_uz: r.from.name_uz,
+                    name_ru: r.from.name_ru,
+                    name_en: r.from.name_en,
+                    photo: r.from.profile_photo,
+                },
+                to: {
+                    id: r.to.id,
+                    name: r.to[nf],
+                    name_uz: r.to.name_uz,
+                    name_ru: r.to.name_ru,
+                    name_en: r.to.name_en,
+                    photo: r.to.profile_photo,
+                },
             })),
         };
     }

@@ -403,7 +403,7 @@ export class ChatService {
         return this.buildChatMessagesResponse(chat_id, language, Number(page), Number(limit));
     }
 
-    async getChat(chatId: string, userId: string, language: Language) {
+    async getChat(chatId: string, userId: string, language?: Language) {
         const chat = await this.prisma.chat.findUnique({
             where: { id: chatId },
             include: this.buildChatInclude(),
@@ -417,7 +417,7 @@ export class ChatService {
         return this.formatChatResponse(chat, language, userId);
     }
 
-    async getAdminChat(chatId: string, language: Language) {
+    async getAdminChat(chatId: string, language?: Language) {
         const chat = await this.prisma.chat.findUnique({
             where: { id: chatId },
             include: this.buildChatInclude(),
@@ -532,8 +532,9 @@ export class ChatService {
         };
     }
 
-    formatChatResponse(chat: any, language: Language, currentUserId?: string) {
-        const subjectKey = `subject_${language}`;
+    formatChatResponse(chat: any, language?: Language, currentUserId?: string) {
+        const lang = language ?? 'uz';
+        const subjectKey = `subject_${lang}`;
         const lastMessage = chat.messages?.[0];
 
         let otherParticipant: any = null;
@@ -549,6 +550,9 @@ export class ChatService {
         return {
             id: chat.id,
             subject: chat[subjectKey] || chat.subject_uz,
+            subject_uz: chat.subject_uz,
+            subject_ru: chat.subject_ru,
+            subject_en: chat.subject_en,
             type: chat.type,
             order_id: chat.order_id,
             order_status: chat.order?.status,
@@ -556,7 +560,10 @@ export class ChatService {
             updated_at: chat.updated_at,
             participants: chat.participants.map((p: any) => ({
                 id: p.user.id,
-                name: p.user[`name_${language}`] || p.user.name_uz,
+                name: p.user[`name_${lang}`] || p.user.name_uz,
+                name_uz: p.user.name_uz,
+                name_ru: p.user.name_ru,
+                name_en: p.user.name_en,
                 phone: p.user.phone,
                 email: p.user.email,
                 profile_photo: p.user.profile_photo,
@@ -567,7 +574,10 @@ export class ChatService {
             other_user: otherParticipant
                 ? {
                       id: otherParticipant.user.id,
-                      name: otherParticipant.user[`name_${language}`] || otherParticipant.user.name_uz,
+                      name: otherParticipant.user[`name_${lang}`] || otherParticipant.user.name_uz,
+                      name_uz: otherParticipant.user.name_uz,
+                      name_ru: otherParticipant.user.name_ru,
+                      name_en: otherParticipant.user.name_en,
                       phone: otherParticipant.user.phone,
                       email: otherParticipant.user.email,
                       profile_photo: otherParticipant.user.profile_photo,
@@ -577,7 +587,7 @@ export class ChatService {
         };
     }
 
-    formatMessageResponse(message: any, language: Language) {
+    formatMessageResponse(message: any, language?: Language) {
         const content =
             message[`message_${language}`] ||
             message.message_uz ||

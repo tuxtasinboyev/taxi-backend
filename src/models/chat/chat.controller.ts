@@ -163,10 +163,10 @@ export class ChatController {
     @Role('admin', 'superadmin')
     @ApiOperation({ summary: 'Admin/Superadmin uchun bitta chatni olish' })
     @ApiParam({ name: 'chatId', description: 'Chat ID' })
-    @ApiQuery({ name: 'language', enum: Language, required: true, example: Language.uz })
+    @ApiQuery({ name: 'language', enum: Language, required: false, example: Language.uz })
     async getAdminChat(
         @Param('chatId') chatId: string,
-        @Query('language') language: Language,
+        @Query('language') language?: Language,
     ) {
         return this.chatService.getAdminChat(chatId, language);
     }
@@ -176,11 +176,11 @@ export class ChatController {
     @Get(':chatId')
     @ApiOperation({ summary: 'Bitta chatni olish' })
     @ApiParam({ name: 'chatId', description: 'Chat ID' })
-    @ApiQuery({ name: 'language', enum: Language, required: true, example: Language.uz })
+    @ApiQuery({ name: 'language', enum: Language, required: false, example: Language.uz })
     async getChat(
         @Param('chatId') chatId: string,
-        @Query('language') language: Language,
         @UserData() req: JwtPayload,
+        @Query('language') language?: Language,
     ) {
         return this.chatService.getChat(chatId, req.id, language);
     }

@@ -50,7 +50,7 @@ export class ReviewController {
     @ApiResponse({ status: 200, description: "Baholar ro'yxati" })
     async getMyReviews(
         @UserData() user: JwtPayload,
-        @Query('language') language: Language = Language.uz,
+        @Query('language') language?: Language,
     ) {
         return this.reviewService.getMyReviews(user.id, language);
     }
@@ -97,7 +97,7 @@ export class ReviewController {
     async getAllReviews(
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '10',
-        @Query('language') language: Language = Language.uz,
+        @Query('language') language?: Language,
         @Query('order_id') order_id?: string,
         @Query('from_user_id') from_user_id?: string,
         @Query('to_user_id') to_user_id?: string,
@@ -129,7 +129,7 @@ export class ReviewController {
     @ApiResponse({ status: 404, description: 'Baho topilmadi' })
     async getReviewById(
         @Param('id') id: string,
-        @Query('language') language: Language = Language.uz,
+        @Query('language') language?: Language,
     ) {
         return this.reviewService.getReviewById(id, language);
     }

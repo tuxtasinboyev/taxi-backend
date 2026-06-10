@@ -4,6 +4,7 @@ import {
     Delete,
     Get,
     Param,
+    Patch,
     Post,
     Put,
     Query,
@@ -151,6 +152,24 @@ export class UsersController {
             return this.usersService.updateMe(userId, data, photo.filename);
         }
         return this.usersService.updateMe(userId, data);
+    }
+
+    @UseGuards(GuardService)
+    @ApiBearerAuth()
+    @Patch('me/profile')
+    @ApiOperation({ summary: 'Update own name (JSON, no file)' })
+    @ApiResponse({ status: 200, description: 'Profile updated' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async updateMyProfile(
+        @Req() req: any,
+        @Body() body: { name?: string; name_uz?: string; name_ru?: string; name_en?: string },
+    ) {
+        const userId = req.user.id;
+        const name = body.name ?? body.name_uz;
+        return this.usersService.updateMe(userId, {
+            name: name,
+            lang: 'uz',
+        } as any);
     }
 
     @UseGuards(GuardService, RoleGuardService)

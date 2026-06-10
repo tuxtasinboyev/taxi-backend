@@ -115,12 +115,19 @@ export class NotificationController {
     @ApiQuery({ name: 'page', required: false })
     @ApiQuery({ name: 'limit', required: false })
     @ApiQuery({ name: 'user_id', required: false })
+    @ApiQuery({ name: 'type', required: false })
+    @ApiQuery({ name: 'is_read', required: false })
+    @ApiQuery({ name: 'user_role', required: false })
     adminGetAll(
         @Query('page') page = 1,
         @Query('limit') limit = 20,
         @Query('user_id') userId?: string,
+        @Query('type') type?: string,
+        @Query('is_read') isRead?: string,
+        @Query('user_role') userRole?: string,
     ) {
-        return this.notificationService.adminGetAll(+page, +limit, userId);
+        const isReadBool = isRead === 'true' ? true : isRead === 'false' ? false : undefined;
+        return this.notificationService.adminGetAll(+page, +limit, userId, type, isReadBool, userRole);
     }
 
     @UseGuards(GuardService, RoleGuardService)
