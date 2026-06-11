@@ -229,4 +229,16 @@ export class DriverController {
     async deleteDriver(@Param('id') id: string) {
         return this.driverService.deleteDriver(id);
     }
+
+    @UseGuards(GuardService)
+    @ApiBearerAuth()
+    @Get('me/earnings')
+    @ApiOperation({ summary: "Haydovchining daromadlari (today/weekly/monthly/all)" })
+    @ApiQuery({ name: 'period', required: false, enum: ['today', 'weekly', 'monthly', 'all'] })
+    async getMyEarnings(
+        @UserData() user: JwtPayload,
+        @Query('period') period: 'today' | 'weekly' | 'monthly' | 'all' = 'today',
+    ) {
+        return this.driverService.getDriverEarnings(user.id, period);
+    }
 }

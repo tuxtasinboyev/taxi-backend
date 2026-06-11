@@ -472,4 +472,56 @@ export class DriverService {
             message: 'Driver successfully deleted',
         };
     }
+
+    async getDriverEarnings(userId: string, period: 'today' | 'weekly' | 'monthly' | 'all' = 'today') {
+        const driver = await this.prisma.driver.findFirst({ where: { id: userId } });
+        if (!driver) {
+            const byUser = await this.prisma.driver.findFirst({ where: { user: { id: userId } } });
+            if (!byUser) throw new Error('Driver not found');
+        }
+
+        const now = new Date();
+        let from: Date | undefined;
+        if (period === 'today') {
+            from = new Date(now); from.setHours(0, 0, 0, 0);
+        } else if (period === 'weekly') {
+            from = new Date(now); from.setDate(now.getDate() - 7);
+        } else if (period === 'monthly') {
+            from = new Date(now); from.setMonth(now.getMonth() - 1);
+        }
+
+        const payments = await this.prisma.payment.findMany({
+            where: {
+                order: { driver_id: userId },
+                status: 'success',
+                ...(from ? { paid_at: { gte: from } } : {}),
+            },
+            include: {
+                order: { select: { created_at: true, price: true, distance_km: true } },
+            },
+            orderBy: { paid_at: 'desc' },
+        });
+
+        const total = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const totalCommission = payments.reduce((sum, p) => sum + Number(p.commission_amount ?? 0), 0);
+        const totalNet = payments.reduce((sum, p) => sum + Number(p.net_amount ?? 0), 0);
+
+        return {
+            period,
+            total_earned: total,
+            commission_paid: totalCommission,
+            net_received: totalNet,
+            order_count: payments.length,
+            payments: payments.map(p => ({
+                id: p.id,
+                amount: Number(p.amount),
+                commission_amount: Number(p.commission_amount ?? 0),
+                net_amount: Number(p.net_amount ?? 0),
+                method: p.method,
+                paid_at: p.paid_at,
+                order_price: p.order?.price,
+                distance_km: p.order?.distance_km,
+            })),
+        };
+    }
 }

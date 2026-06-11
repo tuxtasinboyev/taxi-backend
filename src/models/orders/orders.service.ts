@@ -1480,4 +1480,66 @@ export class OrdersService {
             },
         };
     }
+
+    async getUserTodayStats(userId: string) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const payments = await this.prisma.payment.findMany({
+            where: {
+                order: { user_id: userId },
+                status: 'success',
+                paid_at: { gte: today, lt: tomorrow },
+            },
+        });
+
+        const total = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        return { today_total: total, order_count: payments.length };
+    }
+
+    async getUserOrderStats(userId: string, period: 'today' | 'weekly' | 'monthly' | 'all') {
+        const now = new Date();
+        let from: Date | undefined;
+
+        if (period === 'today') {
+            from = new Date(now); from.setHours(0, 0, 0, 0);
+        } else if (period === 'weekly') {
+            from = new Date(now); from.setDate(now.getDate() - 7);
+        } else if (period === 'monthly') {
+            from = new Date(now); from.setMonth(now.getMonth() - 1);
+        }
+
+        const orders = await this.prisma.order.findMany({
+            where: {
+                user_id: userId,
+                status: 'completed',
+                ...(from ? { created_at: { gte: from } } : {}),
+            },
+            include: {
+                payment: true,
+                taxiCategory: true,
+                userLocations: true,
+            },
+            orderBy: { created_at: 'desc' },
+        });
+
+        const totalSpent = orders.reduce((sum, o) => sum + (o.payment ? Number(o.payment.amount) : 0), 0);
+
+        return {
+            period,
+            total_spent: totalSpent,
+            order_count: orders.length,
+            orders: orders.map(o => ({
+                id: o.id,
+                price: o.price,
+                status: o.status,
+                created_at: o.created_at,
+                distance_km: o.distance_km,
+                payment_method: o.payment?.method ?? null,
+                payment_status: o.payment?.status ?? null,
+            })),
+        };
+    }
 }

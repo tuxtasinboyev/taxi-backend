@@ -401,4 +401,24 @@ export class OrdersController {
     async updateOrder(@Param('id') id: string, @Body() dto: UpdateOrderDto, @UserData() user: JwtPayload) {
         return this.ordersService.updateOrder(id, dto, user);
     }
+
+    @UseGuards(GuardService)
+    @ApiBearerAuth()
+    @Get('user/today-stats')
+    @ApiOperation({ summary: "Foydalanuvchining bugungi xarajati statistikasi" })
+    async getUserTodayStats(@UserData() user: JwtPayload) {
+        return this.ordersService.getUserTodayStats(user.id);
+    }
+
+    @UseGuards(GuardService)
+    @ApiBearerAuth()
+    @Get('user/stats')
+    @ApiOperation({ summary: "Foydalanuvchining buyurtmalar statistikasi (today/weekly/monthly/all)" })
+    @ApiQuery({ name: 'period', required: false, enum: ['today', 'weekly', 'monthly', 'all'] })
+    async getUserOrderStats(
+        @UserData() user: JwtPayload,
+        @Query('period') period: 'today' | 'weekly' | 'monthly' | 'all' = 'today',
+    ) {
+        return this.ordersService.getUserOrderStats(user.id, period);
+    }
 }
