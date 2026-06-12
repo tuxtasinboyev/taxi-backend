@@ -23,6 +23,16 @@ export class CreateOrderDto {
     @IsLongitude()
     end_lng: number;
 
+    @ApiPropertyOptional({ example: 'Amir Temur ko\'chasi 15', description: 'Boshlanish manzili (ixtiyoriy)' })
+    @IsOptional()
+    @IsString()
+    from_address?: string;
+
+    @ApiPropertyOptional({ example: 'Yunusobod 7-mavze', description: 'Manzil (ixtiyoriy)' })
+    @IsOptional()
+    @IsString()
+    to_address?: string;
+
     @ApiPropertyOptional({ example: 'uuid-taxi-category', description: 'Taxi category ID (optional)' })
     @IsOptional()
     @IsString()

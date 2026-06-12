@@ -153,10 +153,12 @@ export class OrdersController {
 
             const result = await this.ordersService.createOrder({
                 user_id: user.id,
-                start_lat: dto.start_lat, // Aniq ko'rsatib chiqing
+                start_lat: dto.start_lat,
                 start_lng: dto.start_lng,
                 end_lat: dto.end_lat,
                 end_lng: dto.end_lng,
+                from_address: dto.from_address,
+                to_address: dto.to_address,
                 taxiCategoryId: dto.taxiCategoryId,
                 promoCode: dto.promoCode,
                 payment_method: dto.payment_method,
@@ -168,6 +170,7 @@ export class OrdersController {
         }
     }
     // 🟡 2. Haydovchi zakasni qabul qiladi
+    @UseGuards(GuardService)
     @Post('accept/:orderId/:driverId')
     @ApiOperation({ summary: 'Haydovchi zakasni qabul qiladi' })
     @ApiParam({ name: 'orderId', description: 'Zakaz ID (UUID)', type: String })
@@ -353,6 +356,7 @@ export class OrdersController {
     }
 
     // 🟢 3. Order yakunlash
+    @UseGuards(GuardService)
     @Post('complete/:orderId')
     @ApiOperation({ summary: 'Orderni yakunlash (tugatish)' })
     @ApiParam({ name: 'orderId', description: 'Order ID (UUID)', type: String })
@@ -373,6 +377,7 @@ export class OrdersController {
    
 
     // 🟡 5. Order statusini yangilash
+    @UseGuards(GuardService)
     @Patch('update-status/:orderId')
     @ApiOperation({ summary: 'Order statusini yangilash (on_way, arrived, completed, cancelled va h.k.)' })
     @ApiParam({ name: 'orderId', description: 'Order ID', type: String })

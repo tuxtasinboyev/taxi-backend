@@ -150,6 +150,8 @@ export interface RecentOrder {
     price: number;
     distance_km: number;
     created_at: Date;
+    from_address?: string | null;
+    to_address?: string | null;
     user_name: string | null;
     user_name_uz?: string | null;
     user_name_ru?: string | null;
@@ -552,6 +554,8 @@ export class DashboardService {
                     price: true,
                     distance_km: true,
                     created_at: true,
+                    from_address: true,
+                    to_address: true,
                     user: { select: { name_uz: true, name_ru: true, name_en: true, phone: true } },
                     driver: { select: { user: { select: { name_uz: true, name_ru: true, name_en: true, phone: true } } } },
                     taxiCategory: { select: { name_uz: true, name_ru: true, name_en: true } },
@@ -598,6 +602,8 @@ export class DashboardService {
                         price: Number(o.price),
                         distance_km: Number(o.distance_km),
                         created_at: o.created_at,
+                        from_address: o.from_address ?? null,
+                        to_address: o.to_address ?? null,
                         user_name: o.user.name_uz,
                         user_name_uz: o.user.name_uz,
                         user_name_ru: o.user.name_ru,

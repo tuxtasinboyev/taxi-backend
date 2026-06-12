@@ -131,10 +131,12 @@ model Order {
   user_id      String
   driver_id    String?
 
-  start_lat Decimal @db.Decimal(10, 6)
-  start_lng Decimal @db.Decimal(10, 6)
-  end_lat   Decimal @db.Decimal(10, 6)
-  end_lng   Decimal @db.Decimal(10, 6)
+  start_lat    Decimal @db.Decimal(10, 6)
+  start_lng    Decimal @db.Decimal(10, 6)
+  end_lat      Decimal @db.Decimal(10, 6)
+  end_lng      Decimal @db.Decimal(10, 6)
+  from_address String? @db.VarChar(300)
+  to_address   String? @db.VarChar(300)
 
   distance_km  Decimal?    @db.Decimal(10, 2)
   duration_min Decimal?    @db.Decimal(10, 2)

@@ -31,6 +31,8 @@ export class OrdersService {
         start_lng: number;
         end_lat: number;
         end_lng: number;
+        from_address?: string;
+        to_address?: string;
         taxiCategoryId?: string;
         promoCode?: string;
         payment_method?: PaymentMethod
@@ -129,6 +131,8 @@ export class OrdersService {
                 start_lng: dto.start_lng,
                 end_lat: dto.end_lat,
                 end_lng: dto.end_lng,
+                from_address: dto.from_address || null,
+                to_address: dto.to_address || null,
                 price: finalPrice,
                 distance_km: distanceKm,
                 duration_min: estimatedTime,
@@ -161,6 +165,8 @@ export class OrdersService {
                 start_lng: Number(order.start_lng),
                 end_lat: Number(order.end_lat),
                 end_lng: Number(order.end_lng),
+                from_address: order.from_address ?? null,
+                to_address: order.to_address ?? null,
             });
         }
 
@@ -438,10 +444,12 @@ export class OrdersService {
             throw new NotFoundException('Driver not found');
         }
 
+        const freshCutoff = new Date(Date.now() - 60 * 1000); // 1 daqiqadan yangi
         const pendingOrders = await this.prisma.order.findMany({
             where: {
                 status: 'pending',
                 driver_id: null,
+                created_at: { gte: freshCutoff },
             },
             include: {
                 user: {
@@ -483,6 +491,8 @@ export class OrdersService {
                     start_lng: Number(order.start_lng),
                     end_lat: Number(order.end_lat),
                     end_lng: Number(order.end_lng),
+                    from_address: order.from_address ?? null,
+                    to_address: order.to_address ?? null,
                     created_at: order.created_at,
                 };
             })
@@ -1541,5 +1551,38 @@ export class OrdersService {
                 payment_status: o.payment?.status ?? null,
             })),
         };
+    }
+
+    // 1 daqiqadan eski pending orderlarni avtomatik bekor qilish
+    async cancelStalePendingOrders(maxAgeMinutes = 1): Promise<number> {
+        const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000);
+
+        const stale = await this.prisma.order.findMany({
+            where: {
+                status: 'pending',
+                driver_id: null,
+                created_at: { lt: cutoff },
+            },
+            select: { id: true, user_id: true },
+        });
+
+        if (!stale.length) return 0;
+
+        const ids = stale.map(o => o.id);
+
+        await this.prisma.order.updateMany({
+            where: { id: { in: ids } },
+            data: { status: 'cancelled' },
+        });
+
+        for (const order of stale) {
+            this.socketGateway.emitToUser(order.user_id, 'order:cancelled', {
+                order_id: order.id,
+                reason: 'Yaqin atrofda haydovchi topilmadi. Qayta urinib ko\'ring.',
+            });
+        }
+
+        this.logger.log(`🕐 Auto-cancelled ${stale.length} stale pending order(s) older than ${maxAgeMinutes} min`);
+        return stale.length;
     }
 }

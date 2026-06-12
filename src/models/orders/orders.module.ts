@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { OrdersScheduler } from './orders.scheduler';
 import { RedisGeoService } from './locations/redis-geo.service';
 import { LocationGateway } from './locations/location.chatgetaway';
 import { DatabaseService } from 'src/config/database/database.service';
@@ -15,6 +16,7 @@ import { NotificationModule } from '../notification/notification.module';
   controllers: [OrdersController],
   providers: [
     OrdersService,
+    OrdersScheduler,
     RedisGeoService,
     LocationGateway,
     DatabaseService,
