@@ -58,8 +58,6 @@ export class ChatController {
     }
 
     @Post('support/create')
-    @UseGuards(RoleGuardService)
-    @Role('passenger', 'driver')
     @ApiOperation({ summary: 'Support chat yaratish yoki mavjudini olish' })
     @ApiResponse({ status: HttpStatus.CREATED, description: 'Support chat yaratildi yoki mavjudi qaytarildi' })
     async createSupportChat(@Body() dto: CreateSupportChatDto, @UserData() req: JwtPayload) {
