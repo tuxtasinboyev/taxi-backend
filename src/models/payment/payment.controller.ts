@@ -57,6 +57,7 @@ export class PaymentController {
     @ApiBearerAuth()
     @Get('my')
     @ApiOperation({ summary: 'Get all my payments (user or driver)' })
+    @ApiQuery({ name: 'language', required: false, enum: ['uz', 'ru', 'en'] })
     @ApiResponse({ status: 200, description: 'List of payments' })
     async getAllMyPayments(
         @UserData() user: JwtPayload,
