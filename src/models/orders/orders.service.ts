@@ -915,6 +915,7 @@ export class OrdersService {
                         order.driver.user.name_en ??
                         'Haydovchi',
                     phone: order.driver.user.phone,
+                    photo_url:order.driver.user.profile_photo,
                     car_number: order.driver.car_number,
                     car_model:
                         order.driver.car_model_uz ??
