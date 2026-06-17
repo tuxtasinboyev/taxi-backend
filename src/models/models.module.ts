@@ -12,6 +12,7 @@ import { ReviewModule } from './review/review.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationModule } from './notification/notification.module';
 import { DriverRequestModule } from './driver-request/driver-request.module';
+import { CommissionModule } from './commission/commission.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DriverRequestModule } from './driver-request/driver-request.module';
     DashboardModule,
     NotificationModule,
     DriverRequestModule,
+    CommissionModule,
   ],
   providers: [SocketGateway],
   exports: [SocketGateway],

@@ -717,6 +717,23 @@ export class OrdersService {
             data: { order_id: orderId, earned: String(driverEarn) },
         }).catch(() => null);
 
+        // DriverCommission yozish — kun oxirida haydovchi to'laydi
+        const workDate = new Date();
+        workDate.setHours(0, 0, 0, 0);
+        await this.prisma.driverCommission.upsert({
+            where: { order_id: orderId },
+            update: {},
+            create: {
+                driver_id: order.driver_id,
+                order_id: orderId,
+                order_amount: orderPrice,
+                percent: 5,
+                commission_amount: commissionAmt,
+                work_date: workDate,
+                status: 'unpaid',
+            },
+        });
+
         this.logger.log(`✅ Order ${orderId} completed: driver ${order.driver_id} earned ${driverEarn}`);
         return updatedOrder;
     }

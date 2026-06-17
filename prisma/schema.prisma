@@ -71,6 +71,9 @@ model Driver {
   taxiCategory    TaxiCategory?    @relation(fields: [taxiCategoryId], references: [id])
   taxiCategoryId  String?
   driverLocations DriverLocation[]
+
+  commissions        DriverCommission[]
+  commissionPayments DriverCommissionPayment[]
 }
 
 model DriverLocation {
@@ -156,8 +159,9 @@ model Order {
   taxiCategory   TaxiCategory?  @relation(fields: [taxiCategoryId], references: [id])
   taxiCategoryId String?
 
-  driverLocations DriverLocation[]
-  userLocations   UserLocation[]
+  driverLocations  DriverLocation[]
+  userLocations    UserLocation[]
+  driverCommission DriverCommission?
 }
 
 model FareBreakdown {
@@ -220,6 +224,61 @@ model Payment {
   active     Boolean   @default(true)
 
   order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+}
+
+model DriverCommission {
+  id        String @id @default(uuid())
+  driver_id String
+  order_id  String @unique
+
+  order_amount      Decimal @db.Decimal(10, 2)
+  percent           Decimal @default(5.00) @db.Decimal(5, 2)
+  commission_amount Decimal @db.Decimal(10, 2)
+
+  work_date DateTime
+  status    DriverCommissionStatus @default(unpaid)
+
+  payment_id String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  driver  Driver                   @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  order   Order                    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  payment DriverCommissionPayment? @relation(fields: [payment_id], references: [id], onDelete: SetNull)
+
+  @@index([driver_id])
+  @@index([work_date])
+  @@index([status])
+  @@index([payment_id])
+}
+
+model DriverCommissionPayment {
+  id        String @id @default(uuid())
+  driver_id String
+
+  amount Decimal                       @db.Decimal(10, 2)
+  status DriverCommissionPaymentStatus @default(pending)
+
+  provider String @default("click") @db.VarChar(50)
+
+  merchant_trans_id String  @unique
+  click_trans_id    BigInt?
+  click_paydoc_id   BigInt?
+
+  from_date DateTime?
+  to_date   DateTime?
+
+  paid_at    DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  driver      Driver             @relation(fields: [driver_id], references: [id], onDelete: Cascade)
+  commissions DriverCommission[]
+
+  @@index([driver_id])
+  @@index([status])
+  @@index([merchant_trans_id])
 }
 
 model UserCard {
@@ -405,6 +464,20 @@ enum PaymentStatus {
   pending
   success
   failed
+}
+
+enum DriverCommissionStatus {
+  unpaid
+  pending
+  paid
+  cancelled
+}
+
+enum DriverCommissionPaymentStatus {
+  pending
+  success
+  failed
+  cancelled
 }
 
 enum MessageType {
