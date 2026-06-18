@@ -86,15 +86,73 @@ export class CommissionService {
     };
   }
 
+  private buildClickUrl(paymentId: string, amount: number): string {
+    const serviceId = process.env.CLICK_SERVICE_ID;
+    const merchantId = process.env.CLICK_MERCHANT_ID;
+    const payUrl = process.env.CLICK_PAY_URL ?? 'https://my.click.uz/services/pay';
+    const returnUrl = process.env.CLICK_RETURN_URL ?? '';
+    return (
+      `${payUrl}?service_id=${serviceId}&merchant_id=${merchantId}` +
+      `&amount=${amount}&transaction_param=${paymentId}` +
+      (returnUrl ? `&return_url=${encodeURIComponent(returnUrl)}` : '')
+    );
+  }
+
+  async getPendingPayment(driver_id: string) {
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 daqiqa
+    const cutoff = new Date(Date.now() - TIMEOUT_MS);
+
+    const payment = await this.prisma.driverCommissionPayment.findFirst({
+      where: { driver_id, status: 'pending', created_at: { gte: cutoff } },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (!payment) return { success: true, has_pending: false, data: null };
+
+    return {
+      success: true,
+      has_pending: true,
+      data: {
+        payment_id: payment.id,
+        amount: Number(payment.amount),
+        status: payment.status,
+        from_date: payment.from_date,
+        to_date: payment.to_date,
+        created_at: payment.created_at,
+        click_url: this.buildClickUrl(payment.id, Number(payment.amount)),
+      },
+    };
+  }
+
   async initiatePayment(driver_id: string, dto: InitiateCommissionPaymentDto) {
     const driver = await this.prisma.driver.findUnique({ where: { id: driver_id } });
     if (!driver) throw new NotFoundException('Driver not found');
+
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 daqiqa
+    const cutoff = new Date(Date.now() - TIMEOUT_MS);
+
+    // Faol pending payment bor bo'lsa (30 daqiqadan yangi) — o'shani qaytaramiz
+    const existingPending = await this.prisma.driverCommissionPayment.findFirst({
+      where: { driver_id, status: 'pending', created_at: { gte: cutoff } },
+      orderBy: { created_at: 'desc' },
+    });
+
+    if (existingPending) {
+      this.logger.log(`Existing pending payment found: id=${existingPending.id}, returning click_url`);
+      return {
+        success: true,
+        resumed: true,
+        payment_id: existingPending.id,
+        amount: Number(existingPending.amount),
+        click_url: this.buildClickUrl(existingPending.id, Number(existingPending.amount)),
+      };
+    }
 
     const sortedDates = [...dto.dates].sort();
     const fromDate = new Date(sortedDates[0] + 'T00:00:00');
     const toDate = new Date(sortedDates[sortedDates.length - 1] + 'T23:59:59');
 
-    // Reset stale pending commissions back to unpaid (from failed previous attempts)
+    // Eskirgan (30 daqiqadan eski) pending paymentlarni bekor qilish
     const stale = await this.prisma.driverCommission.findMany({
       where: { driver_id, status: 'pending' },
       select: { payment_id: true },
@@ -147,15 +205,7 @@ export class CommissionService {
       data: { status: 'pending', payment_id: payment.id },
     });
 
-    const serviceId = process.env.CLICK_SERVICE_ID;
-    const merchantId = process.env.CLICK_MERCHANT_ID;
-    const payUrl = process.env.CLICK_PAY_URL ?? 'https://my.click.uz/services/pay';
-    const returnUrl = process.env.CLICK_RETURN_URL ?? '';
-
-    const clickUrl =
-      `${payUrl}?service_id=${serviceId}&merchant_id=${merchantId}` +
-      `&amount=${totalAmount}&transaction_param=${payment.id}` +
-      (returnUrl ? `&return_url=${encodeURIComponent(returnUrl)}` : '');
+    const clickUrl = this.buildClickUrl(payment.id, totalAmount);
 
     this.logger.log(`Commission payment initiated: driver=${driver_id} amount=${totalAmount} id=${payment.id}`);
 
@@ -382,6 +432,36 @@ export class CommissionService {
         created_at: p.created_at,
       })),
     };
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+  // ─── Scheduler: 30 daqiqadan eski pending paymentlarni bekor qilish ─────────
+
+  async cancelStalePendingPayments() {
+    const cutoff = new Date(Date.now() - 5 * 60 * 1000);
+
+    const stalePayments = await this.prisma.driverCommissionPayment.findMany({
+      where: { status: 'pending', created_at: { lt: cutoff } },
+      select: { id: true },
+    });
+
+    if (!stalePayments.length) return;
+
+    const ids = stalePayments.map((p) => p.id);
+
+    await this.prisma.$transaction([
+      this.prisma.driverCommissionPayment.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'cancelled' },
+      }),
+      this.prisma.driverCommission.updateMany({
+        where: { payment_id: { in: ids }, status: 'pending' },
+        data: { status: 'unpaid', payment_id: null },
+      }),
+    ]);
+
+    this.logger.log(`Cancelled ${ids.length} stale pending payment(s), commissions reset to unpaid`);
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────

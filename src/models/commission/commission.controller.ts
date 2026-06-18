@@ -51,6 +51,18 @@ export class CommissionController {
   @UseGuards(GuardService, RoleGuardService)
   @Role('driver')
   @ApiBearerAuth()
+  @Get('my/pending-payment')
+  @ApiOperation({
+    summary: "Joriy pending to'lov (davom ettirish uchun)",
+    description: 'Agar 30 daqiqadan yangi pending payment mavjud bo\'lsa, click_url bilan qaytaradi. has_pending: false bo\'lsa, yangi to\'lov boshlash kerak.',
+  })
+  getPendingPayment(@UserData() user: JwtPayload) {
+    return this.commissionService.getPendingPayment(user.id);
+  }
+
+  @UseGuards(GuardService, RoleGuardService)
+  @Role('driver')
+  @ApiBearerAuth()
   @Post('my/pay')
   @ApiOperation({
     summary: "Click orqali komisyon to'lashni boshlash",

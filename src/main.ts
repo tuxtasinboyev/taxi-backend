@@ -3,9 +3,20 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import basicAuth from 'express-basic-auth';
 import { AppModule } from './app.module';
+import { join } from 'path';
+import * as express from 'express';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Uploads papkasini yaratish va static fayl servisi
+  const uploadsPath = join(process.cwd(), '..', 'core', 'uploads');
+  ['images', 'videos', 'docs', 'archive'].forEach(dir => {
+    const p = join(uploadsPath, dir);
+    if (!existsSync(p)) mkdirSync(p, { recursive: true });
+  });
+  app.use('/uploads', express.static(uploadsPath));
 
   app.use(
     ['/api/docs', '/api/docs-json'],
