@@ -25,7 +25,9 @@ export class CommissionService {
     return crypto.createHash('md5').update(str).digest('hex');
   }
 
-  // ─── Driver endpoints ────────────────────────────────────────────────────────
+  private normalizeAmount(value: number | string): number {
+    return Math.round(Number(value || 0));
+  }
 
   async getMyUnpaidSummary(driver_id: string) {
     const commissions = await this.prisma.driverCommission.findMany({
@@ -42,12 +44,17 @@ export class CommissionService {
       string,
       { date: string; total: number; count: number; orders: any[] }
     > = {};
+
     for (const c of commissions) {
       const key = c.work_date.toISOString().split('T')[0];
-      if (!byDate[key])
+
+      if (!byDate[key]) {
         byDate[key] = { date: key, total: 0, count: 0, orders: [] };
+      }
+
       byDate[key].total += Number(c.commission_amount);
       byDate[key].count++;
+
       byDate[key].orders.push({
         order_id: c.order_id,
         order_amount: Number(c.order_amount),
@@ -64,8 +71,11 @@ export class CommissionService {
 
     return {
       success: true,
-      total_unpaid,
-      days: Object.values(byDate),
+      total_unpaid: this.normalizeAmount(total_unpaid),
+      days: Object.values(byDate).map((day) => ({
+        ...day,
+        total: this.normalizeAmount(day.total),
+      })),
     };
   }
 
@@ -106,15 +116,20 @@ export class CommissionService {
     const payUrl =
       process.env.CLICK_PAY_URL ?? 'https://my.click.uz/services/pay';
     const returnUrl = process.env.CLICK_RETURN_URL ?? '';
+
+    const normalizedAmount = this.normalizeAmount(amount);
+
     return (
-      `${payUrl}?service_id=${serviceId}&merchant_id=${merchantId}` +
-      `&amount=${amount}&transaction_param=${paymentId}` +
+      `${payUrl}?service_id=${encodeURIComponent(String(serviceId || ''))}` +
+      `&merchant_id=${encodeURIComponent(String(merchantId || ''))}` +
+      `&amount=${encodeURIComponent(String(normalizedAmount))}` +
+      `&transaction_param=${encodeURIComponent(paymentId)}` +
       (returnUrl ? `&return_url=${encodeURIComponent(returnUrl)}` : '')
     );
   }
 
   async getPendingPayment(driver_id: string) {
-    const TIMEOUT_MS = 5 * 60 * 1000; // 5 daqiqa
+    const TIMEOUT_MS = 5 * 60 * 1000;
     const cutoff = new Date(Date.now() - TIMEOUT_MS);
 
     const payment = await this.prisma.driverCommissionPayment.findFirst({
@@ -122,19 +137,23 @@ export class CommissionService {
       orderBy: { created_at: 'desc' },
     });
 
-    if (!payment) return { success: true, has_pending: false, data: null };
+    if (!payment) {
+      return { success: true, has_pending: false, data: null };
+    }
+
+    const amount = this.normalizeAmount(Number(payment.amount));
 
     return {
       success: true,
       has_pending: true,
       data: {
         payment_id: payment.id,
-        amount: Number(payment.amount),
+        amount,
         status: payment.status,
         from_date: payment.from_date,
         to_date: payment.to_date,
         created_at: payment.created_at,
-        click_url: this.buildClickUrl(payment.id, Number(payment.amount)),
+        click_url: this.buildClickUrl(payment.id, amount),
       },
     };
   }
@@ -143,12 +162,18 @@ export class CommissionService {
     const driver = await this.prisma.driver.findUnique({
       where: { id: driver_id },
     });
-    if (!driver) throw new NotFoundException('Driver not found');
 
-    const TIMEOUT_MS = 5 * 60 * 1000; // 5 daqiqa
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    if (!dto.dates || !Array.isArray(dto.dates) || dto.dates.length === 0) {
+      throw new BadRequestException('dates majburiy');
+    }
+
+    const TIMEOUT_MS = 5 * 60 * 1000;
     const cutoff = new Date(Date.now() - TIMEOUT_MS);
 
-    // Faol pending payment bor bo'lsa (5 daqiqadan yangi) — o'shani qaytaramiz
     const existingPending = await this.prisma.driverCommissionPayment.findFirst(
       {
         where: { driver_id, status: 'pending', created_at: { gte: cutoff } },
@@ -157,18 +182,18 @@ export class CommissionService {
     );
 
     if (existingPending) {
+      const amount = this.normalizeAmount(Number(existingPending.amount));
+
       this.logger.log(
         `Existing pending payment found: id=${existingPending.id}, returning click_url`,
       );
+
       return {
         success: true,
         resumed: true,
         payment_id: existingPending.id,
-        amount: Number(existingPending.amount),
-        click_url: this.buildClickUrl(
-          existingPending.id,
-          Number(existingPending.amount),
-        ),
+        amount,
+        click_url: this.buildClickUrl(existingPending.id, amount),
       };
     }
 
@@ -176,18 +201,19 @@ export class CommissionService {
     const fromDate = new Date(sortedDates[0] + 'T00:00:00');
     const toDate = new Date(sortedDates[sortedDates.length - 1] + 'T23:59:59');
 
-    // Eskirgan (5 daqiqadan eski) pending paymentlarni to'g'ridan-to'g'ri
-    // driverCommissionPayment jadvalidan olamiz — commission orqali emas
     const stalePayments = await this.prisma.driverCommissionPayment.findMany({
       where: { driver_id, status: 'pending', created_at: { lt: cutoff } },
       select: { id: true },
     });
+
     if (stalePayments.length) {
       const stalePIds = stalePayments.map((p) => p.id);
+
       await this.prisma.driverCommission.updateMany({
         where: { payment_id: { in: stalePIds }, status: 'pending' },
         data: { status: 'unpaid' },
       });
+
       await this.prisma.driverCommissionPayment.updateMany({
         where: { id: { in: stalePIds }, status: 'pending' },
         data: { status: 'cancelled' },
@@ -208,10 +234,16 @@ export class CommissionService {
       );
     }
 
-    const totalAmount = commissions.reduce(
+    const rawTotalAmount = commissions.reduce(
       (sum, c) => sum + Number(c.commission_amount),
       0,
     );
+
+    const totalAmount = this.normalizeAmount(rawTotalAmount);
+
+    if (totalAmount < 1000) {
+      throw new BadRequestException("Click minimal to'lov summasi 1000 so'm");
+    }
 
     const paymentId = crypto.randomUUID();
 
@@ -235,7 +267,7 @@ export class CommissionService {
     const clickUrl = this.buildClickUrl(payment.id, totalAmount);
 
     this.logger.log(
-      `Commission payment initiated: driver=${driver_id} amount=${totalAmount} id=${payment.id}`,
+      `Commission payment initiated: driver=${driver_id} amount=${totalAmount} raw_amount=${rawTotalAmount} id=${payment.id}`,
     );
 
     return {
@@ -246,12 +278,13 @@ export class CommissionService {
     };
   }
 
-  // ─── Click callbacks ─────────────────────────────────────────────────────────
-
   async handlePrepare(dto: ClickCallbackDto) {
+    this.logger.log(`CLICK PREPARE DTO: ${JSON.stringify(dto)}`);
+
     const signInput =
       `${dto.click_trans_id}${dto.service_id}${this.clickSecretKey}` +
       `${dto.merchant_trans_id}${dto.amount}${dto.action}${dto.sign_time}`;
+
     const expectedSign = this.md5(signInput);
 
     this.logger.log(
@@ -269,16 +302,25 @@ export class CommissionService {
       where: { merchant_trans_id: dto.merchant_trans_id },
     });
 
-    if (!payment) return this.clickError(dto, -5, 'Transaction not found');
+    if (!payment) {
+      return this.clickError(dto, -5, 'Transaction not found');
+    }
 
-    if (payment.status === 'success')
+    if (payment.status === 'success') {
       return this.clickError(dto, -4, 'Already paid');
+    }
 
     if (payment.status === 'failed' || payment.status === 'cancelled') {
       return this.clickError(dto, -9, 'Transaction cancelled');
     }
 
-    if (Math.abs(Number(payment.amount) - Number(dto.amount)) > 0.01) {
+    const paymentAmount = this.normalizeAmount(Number(payment.amount));
+    const clickAmount = this.normalizeAmount(Number(dto.amount));
+
+    if (paymentAmount !== clickAmount) {
+      this.logger.warn(
+        `PREPARE amount mismatch: db=${paymentAmount} click=${clickAmount} raw_db=${payment.amount} raw_click=${dto.amount}`,
+      );
       return this.clickError(dto, -2, 'Incorrect amount');
     }
 
@@ -306,9 +348,12 @@ export class CommissionService {
   }
 
   async handleComplete(dto: ClickCallbackDto) {
+    this.logger.log(`CLICK COMPLETE DTO: ${JSON.stringify(dto)}`);
+
     const signInput =
       `${dto.click_trans_id}${dto.service_id}${this.clickSecretKey}` +
       `${dto.merchant_trans_id}${dto.merchant_prepare_id}${dto.amount}${dto.action}${dto.sign_time}`;
+
     const expectedSign = this.md5(signInput);
 
     this.logger.log(
@@ -327,53 +372,65 @@ export class CommissionService {
       include: { commissions: { select: { id: true } } },
     });
 
-    if (!payment) return this.clickError(dto, -5, 'Transaction not found');
-
-    if (payment.status === 'success')
-      return this.clickError(dto, -4, 'Already paid');
-
-    if (payment.status === 'cancelled')
-      return this.clickError(dto, -9, 'Transaction cancelled');
-
-    // Verify merchant_prepare_id matches click_trans_id we stored in prepare
-    if (Number(payment.click_trans_id) !== Number(dto.merchant_prepare_id)) {
+    if (!payment) {
       return this.clickError(dto, -5, 'Transaction not found');
     }
 
-    if (Math.abs(Number(payment.amount) - Number(dto.amount)) > 0.01) {
+    if (payment.status === 'success') {
+      return this.clickError(dto, -4, 'Already paid');
+    }
+
+    if (payment.status === 'cancelled') {
+      return this.clickError(dto, -9, 'Transaction cancelled');
+    }
+
+    if (Number(payment.click_trans_id) !== Number(dto.merchant_prepare_id)) {
+      this.logger.warn(
+        `COMPLETE prepare mismatch: db_click_trans_id=${payment.click_trans_id} merchant_prepare_id=${dto.merchant_prepare_id}`,
+      );
+      return this.clickError(dto, -5, 'Transaction not found');
+    }
+
+    const paymentAmount = this.normalizeAmount(Number(payment.amount));
+    const clickAmount = this.normalizeAmount(Number(dto.amount));
+
+    if (paymentAmount !== clickAmount) {
+      this.logger.warn(
+        `COMPLETE amount mismatch: db=${paymentAmount} click=${clickAmount} raw_db=${payment.amount} raw_click=${dto.amount}`,
+      );
       return this.clickError(dto, -2, 'Incorrect amount');
     }
 
-    // Click returned an error — cancel payment
     if (Number(dto.error) < 0) {
       await this.prisma.driverCommissionPayment.updateMany({
         where: { id: payment.id, status: 'pending' },
         data: { status: 'failed' },
       });
-      // payment_id ni saqlab qolamiz — faqat statusni qaytaramiz
+
       await this.prisma.driverCommission.updateMany({
         where: { payment_id: payment.id, status: 'pending' },
         data: { status: 'unpaid' },
       });
+
       return this.clickError(dto, -9, 'Payment cancelled by user');
     }
 
-    // Atomik update: faqat hali 'pending' bo'lsa yangilanadi (race condition fix)
     const updated = await this.prisma.driverCommissionPayment.updateMany({
       where: { id: payment.id, status: 'pending' },
       data: {
         status: 'success',
         paid_at: new Date(),
         click_trans_id: BigInt(dto.click_trans_id),
+        click_paydoc_id: dto.click_paydoc_id
+          ? BigInt(dto.click_paydoc_id)
+          : payment.click_paydoc_id,
       },
     });
 
-    // 0 qator yangilangan = scheduler yoki boshqa callback allaqachon o'zgartirgan
     if (updated.count === 0) {
       return this.clickError(dto, -4, 'Transaction already processed');
     }
 
-    // payment_id orqali komisyonlarni topib paid qilamiz (payment_id hech qachon null qilinmagan)
     await this.prisma.driverCommission.updateMany({
       where: { payment_id: payment.id },
       data: { status: 'paid' },
@@ -383,16 +440,18 @@ export class CommissionService {
       `Commission payment success: id=${payment.id} amount=${Number(payment.amount)}`,
     );
 
-    return {
+    const response = {
       click_trans_id: Number(dto.click_trans_id),
       merchant_trans_id: dto.merchant_trans_id,
       merchant_confirm_id: payment.id,
       error: 0,
       error_note: 'Success',
     };
-  }
 
-  // ─── Admin endpoints ─────────────────────────────────────────────────────────
+    this.logger.log(`CLICK COMPLETE RESPONSE: ${JSON.stringify(response)}`);
+
+    return response;
+  }
 
   async getAdminDriversCommissions(params: {
     page?: number;
@@ -401,7 +460,10 @@ export class CommissionService {
   }) {
     const { page = 1, limit = 20, status } = params;
     const where: any = {};
-    if (status) where.status = status;
+
+    if (status) {
+      where.status = status;
+    }
 
     const [total, drivers] = await Promise.all([
       this.prisma.driverCommissionPayment
@@ -410,13 +472,14 @@ export class CommissionService {
           _count: { id: true },
         })
         .then((r) => r.length),
+
       this.prisma.driver.findMany({
         skip: (page - 1) * limit,
         take: limit,
         include: {
           user: { select: { name_uz: true, phone: true } },
           commissions: {
-            where: where,
+            where,
             select: { commission_amount: true, status: true },
           },
         },
@@ -429,16 +492,18 @@ export class CommissionService {
         const unpaid = d.commissions
           .filter((c) => c.status === 'unpaid')
           .reduce((s, c) => s + Number(c.commission_amount), 0);
+
         const paid = d.commissions
           .filter((c) => c.status === 'paid')
           .reduce((s, c) => s + Number(c.commission_amount), 0);
+
         return {
           driver_id: d.id,
           name: d.user?.name_uz,
           phone: d.user?.phone,
           car_number: d.car_number,
-          unpaid_total: unpaid,
-          paid_total: paid,
+          unpaid_total: this.normalizeAmount(unpaid),
+          paid_total: this.normalizeAmount(paid),
         };
       }),
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -450,18 +515,24 @@ export class CommissionService {
     params: { from?: string; to?: string },
   ) {
     const where: any = { driver_id };
-    if (params.from) where.work_date = { gte: new Date(params.from) };
-    if (params.to)
+
+    if (params.from) {
+      where.work_date = { gte: new Date(params.from) };
+    }
+
+    if (params.to) {
       where.work_date = {
         ...(where.work_date ?? {}),
         lte: new Date(params.to + 'T23:59:59'),
       };
+    }
 
     const [driver, commissions, payments] = await Promise.all([
       this.prisma.driver.findUnique({
         where: { id: driver_id },
         include: { user: { select: { name_uz: true, phone: true } } },
       }),
+
       this.prisma.driverCommission.findMany({
         where,
         orderBy: { work_date: 'desc' },
@@ -469,13 +540,16 @@ export class CommissionService {
           order: { select: { from_address: true, to_address: true } },
         },
       }),
+
       this.prisma.driverCommissionPayment.findMany({
         where: { driver_id },
         orderBy: { created_at: 'desc' },
       }),
     ]);
 
-    if (!driver) throw new NotFoundException('Driver not found');
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
 
     return {
       success: true,
@@ -508,10 +582,6 @@ export class CommissionService {
     };
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-  // ─── Scheduler: 5 daqiqadan eski pending paymentlarni bekor qilish ──────────
-
   async cancelStalePendingPayments() {
     const cutoff = new Date(Date.now() - 5 * 60 * 1000);
 
@@ -520,16 +590,17 @@ export class CommissionService {
       select: { id: true },
     });
 
-    if (!stalePayments.length) return;
+    if (!stalePayments.length) {
+      return;
+    }
 
     const ids = stalePayments.map((p) => p.id);
 
-    // Avval commissionlarni reset qilamiz (payment_id saqlanadi — complete kechiksa topiladi)
     await this.prisma.driverCommission.updateMany({
       where: { payment_id: { in: ids }, status: 'pending' },
       data: { status: 'unpaid' },
     });
-    // Keyin paymentlarni cancelled qilamiz — complete callback kelsa -9 qaytaradi
+
     await this.prisma.driverCommissionPayment.updateMany({
       where: { id: { in: ids }, status: 'pending' },
       data: { status: 'cancelled' },
@@ -539,8 +610,6 @@ export class CommissionService {
       `Cancelled ${ids.length} stale pending payment(s), commissions reset to unpaid`,
     );
   }
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   private clickError(dto: ClickCallbackDto, code: number, note: string) {
     const response = {
