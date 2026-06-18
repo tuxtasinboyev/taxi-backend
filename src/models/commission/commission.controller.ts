@@ -6,6 +6,8 @@ import {
   Post,
   Query,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -79,12 +81,14 @@ export class CommissionController {
   // ─── Click callbacks (no auth — verified by sign) ─────────────────────────
 
   @Post('click/prepare')
+  @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   @ApiOperation({ summary: 'Click prepare callback (Click tomonidan chaqiriladi)' })
   handlePrepare(@Body() dto: ClickCallbackDto) {
     return this.commissionService.handlePrepare(dto);
   }
 
   @Post('click/complete')
+  @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   @ApiOperation({ summary: 'Click complete callback (Click tomonidan chaqiriladi)' })
   handleComplete(@Body() dto: ClickCallbackDto) {
     return this.commissionService.handleComplete(dto);

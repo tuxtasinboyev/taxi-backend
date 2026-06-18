@@ -226,7 +226,7 @@ export class CommissionService {
       `${dto.merchant_trans_id}${dto.amount}${dto.action}${dto.sign_time}`;
     const expectedSign = this.md5(signInput);
 
-    this.logger.debug(
+    this.logger.log(
       `PREPARE sign_input="${signInput}" expected="${expectedSign}" received="${dto.sign_string}" amount_raw="${dto.amount}"`,
     );
 
@@ -274,7 +274,7 @@ export class CommissionService {
       `${dto.merchant_trans_id}${dto.merchant_prepare_id}${dto.amount}${dto.action}${dto.sign_time}`;
     const expectedSign = this.md5(signInput);
 
-    this.logger.debug(
+    this.logger.log(
       `COMPLETE sign_input="${signInput}" expected="${expectedSign}" received="${dto.sign_string}" amount_raw="${dto.amount}" merchant_prepare_id="${dto.merchant_prepare_id}"`,
     );
 
