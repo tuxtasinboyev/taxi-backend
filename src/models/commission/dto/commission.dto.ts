@@ -1,5 +1,6 @@
-import { IsArray, IsDateString, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import { IsArray, IsDateString, ArrayMinSize, ArrayMaxSize, IsNumber, IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class InitiateCommissionPaymentDto {
   @ApiProperty({
@@ -14,15 +15,44 @@ export class InitiateCommissionPaymentDto {
 }
 
 export class ClickCallbackDto {
+  @Type(() => Number)
+  @IsNumber()
   click_trans_id: number;
+
+  @Type(() => Number)
+  @IsNumber()
   service_id: number;
+
+  @Type(() => Number)
+  @IsNumber()
   click_paydoc_id: number;
+
+  @IsString()
   merchant_trans_id: string;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsNumber()
   merchant_prepare_id?: number;
+
+  @Type(() => Number)
+  @IsNumber()
   amount: number;
+
+  @Type(() => Number)
+  @IsNumber()
   action: number;
+
+  @Type(() => Number)
+  @IsNumber()
   error: number;
+
+  @IsString()
   error_note: string;
+
+  @IsString()
   sign_time: string;
+
+  @IsString()
   sign_string: string;
 }
