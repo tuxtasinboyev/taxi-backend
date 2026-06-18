@@ -131,7 +131,7 @@ export class CommissionService {
     const TIMEOUT_MS = 5 * 60 * 1000; // 5 daqiqa
     const cutoff = new Date(Date.now() - TIMEOUT_MS);
 
-    // Faol pending payment bor bo'lsa (30 daqiqadan yangi) — o'shani qaytaramiz
+    // Faol pending payment bor bo'lsa (5 daqiqadan yangi) — o'shani qaytaramiz
     const existingPending = await this.prisma.driverCommissionPayment.findFirst({
       where: { driver_id, status: 'pending', created_at: { gte: cutoff } },
       orderBy: { created_at: 'desc' },
@@ -152,20 +152,20 @@ export class CommissionService {
     const fromDate = new Date(sortedDates[0] + 'T00:00:00');
     const toDate = new Date(sortedDates[sortedDates.length - 1] + 'T23:59:59');
 
-    // Eskirgan (30 daqiqadan eski) pending paymentlarni bekor qilish
-    const stale = await this.prisma.driverCommission.findMany({
-      where: { driver_id, status: 'pending' },
-      select: { payment_id: true },
+    // Eskirgan (5 daqiqadan eski) pending paymentlarni to'g'ridan-to'g'ri
+    // driverCommissionPayment jadvalidan olamiz — commission orqali emas
+    const stalePayments = await this.prisma.driverCommissionPayment.findMany({
+      where: { driver_id, status: 'pending', created_at: { lt: cutoff } },
+      select: { id: true },
     });
-    const stalePIds = [...new Set(stale.map((c) => c.payment_id).filter(Boolean))];
-    if (stalePIds.length) {
-      // Aniq stale payment IDs ga bog'liq commissionlarni reset — payment_id saqlanadi
+    if (stalePayments.length) {
+      const stalePIds = stalePayments.map((p) => p.id);
       await this.prisma.driverCommission.updateMany({
-        where: { payment_id: { in: stalePIds as string[] }, status: 'pending' },
+        where: { payment_id: { in: stalePIds }, status: 'pending' },
         data: { status: 'unpaid' },
       });
       await this.prisma.driverCommissionPayment.updateMany({
-        where: { id: { in: stalePIds as string[] }, status: 'pending' },
+        where: { id: { in: stalePIds }, status: 'pending' },
         data: { status: 'cancelled' },
       });
     }
@@ -442,7 +442,7 @@ export class CommissionService {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  // ─── Scheduler: 30 daqiqadan eski pending paymentlarni bekor qilish ─────────
+  // ─── Scheduler: 5 daqiqadan eski pending paymentlarni bekor qilish ──────────
 
   async cancelStalePendingPayments() {
     const cutoff = new Date(Date.now() - 5 * 60 * 1000);
