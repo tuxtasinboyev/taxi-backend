@@ -54,7 +54,7 @@ export class CommissionController {
   @Get('my/pending-payment')
   @ApiOperation({
     summary: "Joriy pending to'lov (davom ettirish uchun)",
-    description: 'Agar 30 daqiqadan yangi pending payment mavjud bo\'lsa, click_url bilan qaytaradi. has_pending: false bo\'lsa, yangi to\'lov boshlash kerak.',
+    description: 'Agar 5 daqiqadan yangi pending payment mavjud bo\'lsa, click_url bilan qaytaradi. has_pending: false bo\'lsa, yangi to\'lov boshlash kerak.',
   })
   getPendingPayment(@UserData() user: JwtPayload) {
     return this.commissionService.getPendingPayment(user.id);

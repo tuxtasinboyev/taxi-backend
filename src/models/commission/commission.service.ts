@@ -159,9 +159,10 @@ export class CommissionService {
     });
     const stalePIds = [...new Set(stale.map((c) => c.payment_id).filter(Boolean))];
     if (stalePIds.length) {
+      // Aniq stale payment IDs ga bog'liq commissionlarni reset — payment_id saqlanadi
       await this.prisma.driverCommission.updateMany({
-        where: { driver_id, status: 'pending' },
-        data: { status: 'unpaid', payment_id: null },
+        where: { payment_id: { in: stalePIds as string[] }, status: 'pending' },
+        data: { status: 'unpaid' },
       });
       await this.prisma.driverCommissionPayment.updateMany({
         where: { id: { in: stalePIds as string[] }, status: 'pending' },
@@ -294,33 +295,38 @@ export class CommissionService {
 
     // Click returned an error — cancel payment
     if (Number(dto.error) < 0) {
-      await this.prisma.$transaction([
-        this.prisma.driverCommissionPayment.update({
-          where: { id: payment.id },
-          data: { status: 'failed' },
-        }),
-        this.prisma.driverCommission.updateMany({
-          where: { payment_id: payment.id },
-          data: { status: 'unpaid', payment_id: null },
-        }),
-      ]);
+      await this.prisma.driverCommissionPayment.updateMany({
+        where: { id: payment.id, status: 'pending' },
+        data: { status: 'failed' },
+      });
+      // payment_id ni saqlab qolamiz — faqat statusni qaytaramiz
+      await this.prisma.driverCommission.updateMany({
+        where: { payment_id: payment.id, status: 'pending' },
+        data: { status: 'unpaid' },
+      });
       return this.clickError(dto, -9, 'Payment cancelled by user');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.driverCommissionPayment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'success',
-          paid_at: new Date(),
-          click_trans_id: BigInt(dto.click_trans_id),
-        },
-      }),
-      this.prisma.driverCommission.updateMany({
-        where: { payment_id: payment.id },
-        data: { status: 'paid' },
-      }),
-    ]);
+    // Atomik update: faqat hali 'pending' bo'lsa yangilanadi (race condition fix)
+    const updated = await this.prisma.driverCommissionPayment.updateMany({
+      where: { id: payment.id, status: 'pending' },
+      data: {
+        status: 'success',
+        paid_at: new Date(),
+        click_trans_id: BigInt(dto.click_trans_id),
+      },
+    });
+
+    // 0 qator yangilangan = scheduler yoki boshqa callback allaqachon o'zgartirgan
+    if (updated.count === 0) {
+      return this.clickError(dto, -4, 'Transaction already processed');
+    }
+
+    // payment_id orqali komisyonlarni topib paid qilamiz (payment_id hech qachon null qilinmagan)
+    await this.prisma.driverCommission.updateMany({
+      where: { payment_id: payment.id },
+      data: { status: 'paid' },
+    });
 
     this.logger.log(`Commission payment success: id=${payment.id} amount=${Number(payment.amount)}`);
 
@@ -450,16 +456,16 @@ export class CommissionService {
 
     const ids = stalePayments.map((p) => p.id);
 
-    await this.prisma.$transaction([
-      this.prisma.driverCommissionPayment.updateMany({
-        where: { id: { in: ids } },
-        data: { status: 'cancelled' },
-      }),
-      this.prisma.driverCommission.updateMany({
-        where: { payment_id: { in: ids }, status: 'pending' },
-        data: { status: 'unpaid', payment_id: null },
-      }),
-    ]);
+    // Avval commissionlarni reset qilamiz (payment_id saqlanadi — complete kechiksa topiladi)
+    await this.prisma.driverCommission.updateMany({
+      where: { payment_id: { in: ids }, status: 'pending' },
+      data: { status: 'unpaid' },
+    });
+    // Keyin paymentlarni cancelled qilamiz — complete callback kelsa -9 qaytaradi
+    await this.prisma.driverCommissionPayment.updateMany({
+      where: { id: { in: ids }, status: 'pending' },
+      data: { status: 'cancelled' },
+    });
 
     this.logger.log(`Cancelled ${ids.length} stale pending payment(s), commissions reset to unpaid`);
   }
