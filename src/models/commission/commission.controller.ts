@@ -83,15 +83,17 @@ export class CommissionController {
   @Post('click/prepare')
   @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   @ApiOperation({ summary: 'Click prepare callback (Click tomonidan chaqiriladi)' })
-  handlePrepare(@Body() dto: ClickCallbackDto) {
-    return this.commissionService.handlePrepare(dto);
+  handlePrepare(@Body() body: Record<string, string>) {
+    console.log('CLICK PREPARE RAW BODY:', JSON.stringify(body));
+    return this.commissionService.handlePrepare(body as any);
   }
 
   @Post('click/complete')
   @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   @ApiOperation({ summary: 'Click complete callback (Click tomonidan chaqiriladi)' })
-  handleComplete(@Body() dto: ClickCallbackDto) {
-    return this.commissionService.handleComplete(dto);
+  handleComplete(@Body() body: Record<string, string>) {
+    console.log('CLICK COMPLETE RAW BODY:', JSON.stringify(body));
+    return this.commissionService.handleComplete(body as any);
   }
 
   // ─── Admin routes ─────────────────────────────────────────────────────────
