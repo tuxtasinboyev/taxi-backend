@@ -221,12 +221,17 @@ export class CommissionService {
   // ─── Click callbacks ─────────────────────────────────────────────────────────
 
   async handlePrepare(dto: ClickCallbackDto) {
-    const expectedSign = this.md5(
+    const signInput =
       `${dto.click_trans_id}${dto.service_id}${this.clickSecretKey}` +
-      `${dto.merchant_trans_id}${dto.amount}${dto.action}${dto.sign_time}`,
+      `${dto.merchant_trans_id}${dto.amount}${dto.action}${dto.sign_time}`;
+    const expectedSign = this.md5(signInput);
+
+    this.logger.debug(
+      `PREPARE sign_input="${signInput}" expected="${expectedSign}" received="${dto.sign_string}" amount_raw="${dto.amount}"`,
     );
 
     if (expectedSign !== dto.sign_string) {
+      this.logger.warn(`PREPARE sign mismatch: expected=${expectedSign} received=${dto.sign_string}`);
       return this.clickError(dto, -1, 'Sign validation failed');
     }
 
@@ -264,12 +269,17 @@ export class CommissionService {
   }
 
   async handleComplete(dto: ClickCallbackDto) {
-    const expectedSign = this.md5(
+    const signInput =
       `${dto.click_trans_id}${dto.service_id}${this.clickSecretKey}` +
-      `${dto.merchant_trans_id}${dto.merchant_prepare_id}${dto.amount}${dto.action}${dto.sign_time}`,
+      `${dto.merchant_trans_id}${dto.merchant_prepare_id}${dto.amount}${dto.action}${dto.sign_time}`;
+    const expectedSign = this.md5(signInput);
+
+    this.logger.debug(
+      `COMPLETE sign_input="${signInput}" expected="${expectedSign}" received="${dto.sign_string}" amount_raw="${dto.amount}" merchant_prepare_id="${dto.merchant_prepare_id}"`,
     );
 
     if (expectedSign !== dto.sign_string) {
+      this.logger.warn(`COMPLETE sign mismatch: expected=${expectedSign} received=${dto.sign_string}`);
       return this.clickError(dto, -1, 'Sign validation failed');
     }
 

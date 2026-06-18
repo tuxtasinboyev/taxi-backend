@@ -1,6 +1,5 @@
-import { IsArray, IsDateString, ArrayMinSize, ArrayMaxSize, IsNumber, IsString, IsOptional } from 'class-validator';
+import { IsArray, IsDateString, ArrayMinSize, ArrayMaxSize, IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 
 export class InitiateCommissionPaymentDto {
   @ApiProperty({
@@ -14,41 +13,37 @@ export class InitiateCommissionPaymentDto {
   dates: string[];
 }
 
+// Click barcha fieldlarni string yuboradi (form-urlencoded yoki JSON)
+// Sign hisoblashda raw string ishlatiladi — Number()ga o'tkazmaslik kerak
 export class ClickCallbackDto {
-  @Type(() => Number)
-  @IsNumber()
-  click_trans_id: number;
+  @IsString()
+  click_trans_id: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  service_id: number;
+  @IsString()
+  service_id: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  click_paydoc_id: number;
+  @IsString()
+  click_paydoc_id: string;
 
   @IsString()
   merchant_trans_id: string;
 
-  @Type(() => Number)
   @IsOptional()
-  @IsNumber()
-  merchant_prepare_id?: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  amount: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  action: number;
-
-  @Type(() => Number)
-  @IsNumber()
-  error: number;
+  @IsString()
+  merchant_prepare_id?: string;
 
   @IsString()
-  error_note: string;
+  amount: string;
+
+  @IsString()
+  action: string;
+
+  @IsString()
+  error: string;
+
+  @IsOptional()
+  @IsString()
+  error_note?: string;
 
   @IsString()
   sign_time: string;
