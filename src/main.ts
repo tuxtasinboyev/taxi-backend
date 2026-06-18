@@ -11,10 +11,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
   });
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Uploads papkasini yaratish va static fayl servisi
   const uploadsPath = join(process.cwd(), '..', 'core', 'uploads');
-  ['images', 'videos', 'docs', 'archive'].forEach(dir => {
+  ['images', 'videos', 'docs', 'archive'].forEach((dir) => {
     const p = join(uploadsPath, dir);
     if (!existsSync(p)) mkdirSync(p, { recursive: true });
   });
@@ -25,7 +27,7 @@ async function bootstrap() {
     basicAuth({
       challenge: true,
       users: {
-        'yulla': 'yulla',
+        yulla: 'yulla',
       },
     }),
   );
@@ -34,15 +36,19 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true, // BU JUDA MUHIM: stringdan numberga o'tkazadi
-    transformOptions: { enableImplicitConversion: true }, // Avtomatik konvertatsiya
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true, // BU JUDA MUHIM: stringdan numberga o'tkazadi
+      transformOptions: { enableImplicitConversion: true }, // Avtomatik konvertatsiya
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Taxi API')
-    .setDescription('API documentation for Taxi project. Auth bo`limidagi send-otp endpointi Eskiz SMS provider orqali ishlaydi.')
+    .setDescription(
+      'API documentation for Taxi project. Auth bo`limidagi send-otp endpointi Eskiz SMS provider orqali ishlaydi.',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -50,13 +56,17 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
-      persistAuthorization: true
-    }
+      persistAuthorization: true,
+    },
   });
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
-  console.log(`🚀 Server is running on http://localhost:${process.env.PORT ?? 3000}`);
-  console.log(`📖 Swagger docs: http://localhost:${process.env.PORT ?? 3000}/api/docs`);
+  console.log(
+    `🚀 Server is running on http://localhost:${process.env.PORT ?? 3000}`,
+  );
+  console.log(
+    `📖 Swagger docs: http://localhost:${process.env.PORT ?? 3000}/api/docs`,
+  );
 }
 
 bootstrap();

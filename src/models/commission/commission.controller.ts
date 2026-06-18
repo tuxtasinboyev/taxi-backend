@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -23,7 +24,7 @@ import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import type { JwtPayload } from 'src/config/jwt/jwt.service';
 import { CommissionService } from './commission.service';
-import { ClickCallbackDto, InitiateCommissionPaymentDto } from './dto/commission.dto';
+import { InitiateCommissionPaymentDto } from './dto/commission.dto';
 
 @ApiTags('Commission')
 @Controller('commission')
@@ -56,7 +57,8 @@ export class CommissionController {
   @Get('my/pending-payment')
   @ApiOperation({
     summary: "Joriy pending to'lov (davom ettirish uchun)",
-    description: 'Agar 5 daqiqadan yangi pending payment mavjud bo\'lsa, click_url bilan qaytaradi. has_pending: false bo\'lsa, yangi to\'lov boshlash kerak.',
+    description:
+      "Agar 5 daqiqadan yangi pending payment mavjud bo'lsa, click_url bilan qaytaradi. has_pending: false bo'lsa, yangi to'lov boshlash kerak.",
   })
   getPendingPayment(@UserData() user: JwtPayload) {
     return this.commissionService.getPendingPayment(user.id);
@@ -68,7 +70,8 @@ export class CommissionController {
   @Post('my/pay')
   @ApiOperation({
     summary: "Click orqali komisyon to'lashni boshlash",
-    description: "Tanlangan kun(lar) uchun to'lanmagan komisyonlarni Click orqali to'lash. 1 yoki 2 kun tanlash mumkin.",
+    description:
+      "Tanlangan kun(lar) uchun to'lanmagan komisyonlarni Click orqali to'lash. 1 yoki 2 kun tanlash mumkin.",
   })
   @ApiBody({ type: InitiateCommissionPaymentDto })
   initiatePayment(
@@ -79,21 +82,58 @@ export class CommissionController {
   }
 
   // ─── Click callbacks (no auth — verified by sign) ─────────────────────────
+  // URL o'zgarmaydi:
+  // POST /api/commission/click/prepare
+  // POST /api/commission/click/complete
 
   @Post('click/prepare')
   @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
-  @ApiOperation({ summary: 'Click prepare callback (Click tomonidan chaqiriladi)' })
-  handlePrepare(@Body() body: Record<string, string>) {
+  @ApiOperation({
+    summary: 'Click prepare callback (Click tomonidan chaqiriladi)',
+  })
+  handlePrepare(
+    @Body() body: Record<string, any>,
+    @Query() query: Record<string, any>,
+    @Req() req: any,
+  ) {
+    const payload = {
+      ...(query || {}),
+      ...(body || {}),
+    };
+
+    console.log('CLICK PREPARE METHOD:', req.method);
+    console.log('CLICK PREPARE URL:', req.originalUrl || req.url);
+    console.log('CLICK PREPARE HEADERS:', JSON.stringify(req.headers));
+    console.log('CLICK PREPARE RAW QUERY:', JSON.stringify(query));
     console.log('CLICK PREPARE RAW BODY:', JSON.stringify(body));
-    return this.commissionService.handlePrepare(body as any);
+    console.log('CLICK PREPARE PAYLOAD:', JSON.stringify(payload));
+
+    return this.commissionService.handlePrepare(payload as any);
   }
 
   @Post('click/complete')
   @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
-  @ApiOperation({ summary: 'Click complete callback (Click tomonidan chaqiriladi)' })
-  handleComplete(@Body() body: Record<string, string>) {
+  @ApiOperation({
+    summary: 'Click complete callback (Click tomonidan chaqiriladi)',
+  })
+  handleComplete(
+    @Body() body: Record<string, any>,
+    @Query() query: Record<string, any>,
+    @Req() req: any,
+  ) {
+    const payload = {
+      ...(query || {}),
+      ...(body || {}),
+    };
+
+    console.log('CLICK COMPLETE METHOD:', req.method);
+    console.log('CLICK COMPLETE URL:', req.originalUrl || req.url);
+    console.log('CLICK COMPLETE HEADERS:', JSON.stringify(req.headers));
+    console.log('CLICK COMPLETE RAW QUERY:', JSON.stringify(query));
     console.log('CLICK COMPLETE RAW BODY:', JSON.stringify(body));
-    return this.commissionService.handleComplete(body as any);
+    console.log('CLICK COMPLETE PAYLOAD:', JSON.stringify(payload));
+
+    return this.commissionService.handleComplete(payload as any);
   }
 
   // ─── Admin routes ─────────────────────────────────────────────────────────
@@ -105,7 +145,11 @@ export class CommissionController {
   @ApiOperation({ summary: 'Admin: barcha haydovchilarning komisyon holati' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'status', required: false, enum: ['unpaid', 'pending', 'paid', 'cancelled'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['unpaid', 'pending', 'paid', 'cancelled'],
+  })
   getAdminDriversCommissions(@Query() query: any) {
     return this.commissionService.getAdminDriversCommissions({
       page: query.page ? Number(query.page) : 1,
@@ -118,7 +162,9 @@ export class CommissionController {
   @Role('admin', 'superadmin')
   @ApiBearerAuth()
   @Get('admin/driver/:driver_id')
-  @ApiOperation({ summary: 'Admin: bitta haydovchining batafsil komisyon tarixi' })
+  @ApiOperation({
+    summary: 'Admin: bitta haydovchining batafsil komisyon tarixi',
+  })
   @ApiParam({ name: 'driver_id', type: String })
   @ApiQuery({ name: 'from', required: false, example: '2025-01-01' })
   @ApiQuery({ name: 'to', required: false, example: '2025-01-31' })
