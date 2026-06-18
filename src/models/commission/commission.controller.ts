@@ -1,4 +1,5 @@
 import {
+  All,
   Body,
   Controller,
   Get,
@@ -83,10 +84,13 @@ export class CommissionController {
 
   // ─── Click callbacks (no auth — verified by sign) ─────────────────────────
   // URL o'zgarmaydi:
-  // POST /api/commission/click/prepare
-  // POST /api/commission/click/complete
+  // /api/commission/click/prepare
+  // /api/commission/click/complete
+  //
+  // @All ishlatilgani sababi:
+  // Click POST yuborsa ham, GET/query bilan yuborsa ham logga tushadi.
 
-  @Post('click/prepare')
+  @All('click/prepare')
   @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   @ApiOperation({
     summary: 'Click prepare callback (Click tomonidan chaqiriladi)',
@@ -111,7 +115,7 @@ export class CommissionController {
     return this.commissionService.handlePrepare(payload as any);
   }
 
-  @Post('click/complete')
+  @All('click/complete')
   @UsePipes(new ValidationPipe({ whitelist: false, transform: false }))
   @ApiOperation({
     summary: 'Click complete callback (Click tomonidan chaqiriladi)',
