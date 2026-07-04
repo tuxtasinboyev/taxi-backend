@@ -38,7 +38,7 @@ export class CommissionService {
 
   private normalizeOrderStatus(
     status?: string,
-  ): OrderStatus | 'all' | undefined {
+  ): OrderStatus | undefined {
     if (!status || status === 'all') {
       return undefined;
     }
