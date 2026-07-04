@@ -4,12 +4,19 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { OrderStatus, Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { DatabaseService } from 'src/config/database/database.service';
 import {
   ClickCallbackDto,
   InitiateCommissionPaymentDto,
 } from './dto/commission.dto';
+
+type CommissionFilterParams = {
+  dateFrom?: string;
+  dateTo?: string;
+  orderStatus?: string;
+};
 
 @Injectable()
 export class CommissionService {
@@ -29,12 +36,106 @@ export class CommissionService {
     return Math.round(Number(value || 0));
   }
 
-  async getMyUnpaidSummary(driver_id: string) {
+  private normalizeOrderStatus(
+    status?: string,
+  ): OrderStatus | 'all' | undefined {
+    if (!status || status === 'all') {
+      return undefined;
+    }
+
+    if (status === OrderStatus.completed || status === OrderStatus.cancelled) {
+      return status;
+    }
+
+    return undefined;
+  }
+
+  private parseDate(value: string | undefined, field: string): Date | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${field} is invalid`);
+    }
+
+    return parsed;
+  }
+
+  private buildCommissionFilter(
+    filters?: CommissionFilterParams,
+  ): Prisma.DriverCommissionWhereInput {
+    const where: Prisma.DriverCommissionWhereInput = {};
+    const dateFrom = this.parseDate(filters?.dateFrom, 'date_from');
+    const dateTo = this.parseDate(filters?.dateTo, 'date_to');
+    const orderStatus = this.normalizeOrderStatus(filters?.orderStatus);
+
+    if (dateFrom || dateTo) {
+      where.work_date = {};
+      if (dateFrom) {
+        where.work_date.gte = dateFrom;
+      }
+      if (dateTo) {
+        where.work_date.lte = dateTo;
+      }
+    }
+
+    if (orderStatus) {
+      where.order = { status: orderStatus };
+    }
+
+    return where;
+  }
+
+  private isPendingPaymentVisibleForFilters(
+    payment: { from_date: Date | null; to_date: Date | null },
+    filters?: CommissionFilterParams,
+  ): boolean {
+    const orderStatus = this.normalizeOrderStatus(filters?.orderStatus);
+    if (orderStatus && orderStatus !== OrderStatus.completed) {
+      return false;
+    }
+
+    const dateFrom = this.parseDate(filters?.dateFrom, 'date_from');
+    const dateTo = this.parseDate(filters?.dateTo, 'date_to');
+
+    if (!dateFrom && !dateTo) {
+      return true;
+    }
+
+    const rangeStart = payment.from_date ?? payment.to_date;
+    const rangeEnd = payment.to_date ?? payment.from_date;
+
+    if (!rangeStart || !rangeEnd) {
+      return true;
+    }
+
+    if (dateFrom && rangeStart < dateFrom) {
+      return false;
+    }
+    if (dateTo && rangeEnd > dateTo) {
+      return false;
+    }
+
+    return true;
+  }
+
+  async getMyUnpaidSummary(driver_id: string, filters?: CommissionFilterParams) {
     const commissions = await this.prisma.driverCommission.findMany({
-      where: { driver_id, status: 'unpaid' },
+      where: {
+        driver_id,
+        status: 'unpaid',
+        ...this.buildCommissionFilter(filters),
+      },
       include: {
         order: {
-          select: { from_address: true, to_address: true, price: true },
+          select: {
+            from_address: true,
+            to_address: true,
+            price: true,
+            status: true,
+          },
         },
       },
       orderBy: { work_date: 'asc' },
@@ -79,34 +180,93 @@ export class CommissionService {
     };
   }
 
-  async getMyPaymentHistory(driver_id: string) {
+  async getMyPaymentHistory(driver_id: string, filters?: CommissionFilterParams) {
+    const commissionFilter = this.buildCommissionFilter(filters);
     const payments = await this.prisma.driverCommissionPayment.findMany({
-      where: { driver_id },
+      where: {
+        driver_id,
+        ...(Object.keys(commissionFilter).length
+          ? { commissions: { some: commissionFilter } }
+          : {}),
+      },
       include: {
         commissions: {
+          where: commissionFilter,
           select: {
             id: true,
             order_id: true,
             commission_amount: true,
             work_date: true,
+            order: {
+              select: {
+                status: true,
+              },
+            },
           },
         },
       },
       orderBy: { created_at: 'desc' },
     });
 
+    const summary = {
+      total_paid_amount: 0,
+      total_pending_amount: 0,
+      total_failed_amount: 0,
+      total_cancelled_amount: 0,
+      total_items: payments.length,
+    };
+
+    const data = payments
+      .map((p) => {
+        const filteredAmount = p.commissions.reduce(
+          (sum, commission) => sum + Number(commission.commission_amount),
+          0,
+        );
+
+        if (filteredAmount <= 0) {
+          return null;
+        }
+
+        const normalizedAmount = this.normalizeAmount(filteredAmount);
+        if (p.status === 'success') {
+          summary.total_paid_amount += normalizedAmount;
+        } else if (p.status === 'pending') {
+          summary.total_pending_amount += normalizedAmount;
+        } else if (p.status === 'failed') {
+          summary.total_failed_amount += normalizedAmount;
+        } else if (p.status === 'cancelled') {
+          summary.total_cancelled_amount += normalizedAmount;
+        }
+
+        const workDates = p.commissions
+          .map((commission) => commission.work_date)
+          .sort((a, b) => a.getTime() - b.getTime());
+
+        return {
+          id: p.id,
+          amount: normalizedAmount,
+          status: p.status,
+          from_date: workDates[0] ?? p.from_date,
+          to_date: workDates[workDates.length - 1] ?? p.to_date,
+          paid_at: p.paid_at,
+          created_at: p.created_at,
+          orders_count: p.commissions.length,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
     return {
       success: true,
-      data: payments.map((p) => ({
-        id: p.id,
-        amount: Number(p.amount),
-        status: p.status,
-        from_date: p.from_date,
-        to_date: p.to_date,
-        paid_at: p.paid_at,
-        created_at: p.created_at,
-        orders_count: p.commissions.length,
-      })),
+      summary: {
+        ...summary,
+        total_paid_amount: this.normalizeAmount(summary.total_paid_amount),
+        total_pending_amount: this.normalizeAmount(summary.total_pending_amount),
+        total_failed_amount: this.normalizeAmount(summary.total_failed_amount),
+        total_cancelled_amount: this.normalizeAmount(
+          summary.total_cancelled_amount,
+        ),
+      },
+      data,
     };
   }
 
@@ -128,7 +288,7 @@ export class CommissionService {
     );
   }
 
-  async getPendingPayment(driver_id: string) {
+  async getPendingPayment(driver_id: string, filters?: CommissionFilterParams) {
     const TIMEOUT_MS = 5 * 60 * 1000;
     const cutoff = new Date(Date.now() - TIMEOUT_MS);
 
@@ -138,6 +298,10 @@ export class CommissionService {
     });
 
     if (!payment) {
+      return { success: true, has_pending: false, data: null };
+    }
+
+    if (!this.isPendingPaymentVisibleForFilters(payment, filters)) {
       return { success: true, has_pending: false, data: null };
     }
 

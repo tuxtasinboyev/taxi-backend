@@ -39,8 +39,24 @@ export class CommissionController {
   @ApiBearerAuth()
   @Get('my/summary')
   @ApiOperation({ summary: "Haydovchining to'lanmagan komisyon xulosasi" })
-  getMyUnpaidSummary(@UserData() user: JwtPayload) {
-    return this.commissionService.getMyUnpaidSummary(user.id);
+  @ApiQuery({ name: 'date_from', required: false, type: String })
+  @ApiQuery({ name: 'date_to', required: false, type: String })
+  @ApiQuery({
+    name: 'order_status',
+    required: false,
+    enum: ['all', 'completed', 'cancelled'],
+  })
+  getMyUnpaidSummary(
+    @UserData() user: JwtPayload,
+    @Query('date_from') dateFrom?: string,
+    @Query('date_to') dateTo?: string,
+    @Query('order_status') orderStatus?: string,
+  ) {
+    return this.commissionService.getMyUnpaidSummary(user.id, {
+      dateFrom,
+      dateTo,
+      orderStatus,
+    });
   }
 
   @UseGuards(GuardService, RoleGuardService)
@@ -48,8 +64,24 @@ export class CommissionController {
   @ApiBearerAuth()
   @Get('my/history')
   @ApiOperation({ summary: "Haydovchining komisyon to'lov tarixi" })
-  getMyPaymentHistory(@UserData() user: JwtPayload) {
-    return this.commissionService.getMyPaymentHistory(user.id);
+  @ApiQuery({ name: 'date_from', required: false, type: String })
+  @ApiQuery({ name: 'date_to', required: false, type: String })
+  @ApiQuery({
+    name: 'order_status',
+    required: false,
+    enum: ['all', 'completed', 'cancelled'],
+  })
+  getMyPaymentHistory(
+    @UserData() user: JwtPayload,
+    @Query('date_from') dateFrom?: string,
+    @Query('date_to') dateTo?: string,
+    @Query('order_status') orderStatus?: string,
+  ) {
+    return this.commissionService.getMyPaymentHistory(user.id, {
+      dateFrom,
+      dateTo,
+      orderStatus,
+    });
   }
 
   @UseGuards(GuardService, RoleGuardService)
@@ -61,8 +93,24 @@ export class CommissionController {
     description:
       "Agar 5 daqiqadan yangi pending payment mavjud bo'lsa, click_url bilan qaytaradi. has_pending: false bo'lsa, yangi to'lov boshlash kerak.",
   })
-  getPendingPayment(@UserData() user: JwtPayload) {
-    return this.commissionService.getPendingPayment(user.id);
+  @ApiQuery({ name: 'date_from', required: false, type: String })
+  @ApiQuery({ name: 'date_to', required: false, type: String })
+  @ApiQuery({
+    name: 'order_status',
+    required: false,
+    enum: ['all', 'completed', 'cancelled'],
+  })
+  getPendingPayment(
+    @UserData() user: JwtPayload,
+    @Query('date_from') dateFrom?: string,
+    @Query('date_to') dateTo?: string,
+    @Query('order_status') orderStatus?: string,
+  ) {
+    return this.commissionService.getPendingPayment(user.id, {
+      dateFrom,
+      dateTo,
+      orderStatus,
+    });
   }
 
   @UseGuards(GuardService, RoleGuardService)
