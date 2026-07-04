@@ -82,7 +82,9 @@ export class CommissionService {
     }
 
     if (orderStatus) {
-      where.order = { status: orderStatus };
+      where.order = {
+        is: { status: orderStatus },
+      };
     }
 
     return where;
