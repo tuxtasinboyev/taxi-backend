@@ -8,9 +8,10 @@ import { ConfigModules } from 'src/config/config.module';
 import { JwtModule } from '@nestjs/jwt';
 import { CategoryModule } from './category/category.module';
 import { NotificationModule } from '../../notification/notification.module';
+import { ReferralModule } from '../../referral/referral.module';
 
 @Module({
-  imports: [DatabaseModule, ConfigModules, JwtModule, CategoryModule, NotificationModule],
+  imports: [DatabaseModule, ConfigModules, JwtModule, CategoryModule, NotificationModule, ReferralModule],
   providers: [DriverService, DriverGateway, DriverStatusCron],
   controllers: [DriverController]
 })

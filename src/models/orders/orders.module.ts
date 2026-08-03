@@ -10,9 +10,10 @@ import { DatabaseModule } from 'src/config/database/database.module';
 import { RedisModule } from 'src/config/redis/redis.module';
 import { SocketGateway } from '../socket/socket.gateway';
 import { NotificationModule } from '../notification/notification.module';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
-  imports: [DatabaseModule, RedisModule, NotificationModule],
+  imports: [DatabaseModule, RedisModule, NotificationModule, ReferralModule],
   controllers: [OrdersController],
   providers: [
     OrdersService,

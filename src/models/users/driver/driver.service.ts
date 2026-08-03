@@ -5,11 +5,16 @@ import * as bcrypt from 'bcrypt';
 import { urlGenerator } from 'src/common/types/generator.types';
 import { DatabaseService } from 'src/config/database/database.service';
 import { Language } from 'src/utils/helper';
+import { ReferralService } from '../../referral/referral.service';
 import { CreateDriverDto } from './dto/create.driver.dto';
 
 @Injectable()
 export class DriverService {
-    constructor(private prisma: DatabaseService, private config: ConfigService) { }
+    constructor(
+        private prisma: DatabaseService,
+        private config: ConfigService,
+        private referralService: ReferralService,
+    ) { }
     async createDriver(data: CreateDriverDto, photoUrl?: string) {
         // Bo'sh string ni undefined ga aylantirish
         if (!data.taxi_category_id) data.taxi_category_id = undefined;
@@ -91,6 +96,13 @@ export class DriverService {
 
             return { user, driver };
         });
+
+        if (data.referral_code) {
+            const referrerId = await this.referralService.validateReferralCode(data.referral_code);
+            if (referrerId) {
+                await this.referralService.linkReferral(result.user.id, referrerId);
+            }
+        }
 
         const { password_hash, ...safeUser } = result.user;
 

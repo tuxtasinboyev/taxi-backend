@@ -80,4 +80,12 @@ export class CreateDriverDto {
     @IsOptional()
     @IsString()
     taxi_category_id?: string;
+
+    @ApiPropertyOptional({
+        example: 'YL-4F7K2Q',
+        description: "Bu haydovchini kim taklif qilgani (referal kodi), admin xohlasa kiritadi",
+    })
+    @IsOptional()
+    @IsString()
+    referral_code?: string;
 }

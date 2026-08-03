@@ -49,6 +49,8 @@ model DriverRequest {
   updated_at     DateTime            @updatedAt
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  referral_code String? @db.VarChar(20)
 }
 
 model Driver {
@@ -74,6 +76,15 @@ model Driver {
 
   commissions        DriverCommission[]
   commissionPayments DriverCommissionPayment[]
+
+  referral_code  String? @unique @db.VarChar(20)
+  referred_by_id String?
+
+  referredBy Driver?  @relation("DriverReferrals", fields: [referred_by_id], references: [id], onDelete: SetNull)
+  referrals  Driver[] @relation("DriverReferrals")
+
+  referralEarningsAsReferrer ReferralEarning[] @relation("ReferrerEarnings")
+  referralEarningsAsReferred ReferralEarning[] @relation("ReferredEarnings")
 }
 
 model DriverLocation {
@@ -162,6 +173,7 @@ model Order {
   driverLocations  DriverLocation[]
   userLocations    UserLocation[]
   driverCommission DriverCommission?
+  referralEarning  ReferralEarning?
 }
 
 model FareBreakdown {
@@ -246,6 +258,8 @@ model DriverCommission {
   driver  Driver                   @relation(fields: [driver_id], references: [id], onDelete: Cascade)
   order   Order                    @relation(fields: [order_id], references: [id], onDelete: Cascade)
   payment DriverCommissionPayment? @relation(fields: [payment_id], references: [id], onDelete: SetNull)
+
+  referralEarning ReferralEarning?
 
   @@index([driver_id])
   @@index([work_date])
@@ -428,6 +442,37 @@ model ChatMessage {
   @@index([chat_id])
   @@index([sender_id])
   @@index([is_read])
+}
+
+model ReferralSettings {
+  id            String   @id @default(uuid())
+  percent       Decimal  @default(25.00) @db.Decimal(5, 2)
+  duration_days Int?
+  is_active     Boolean  @default(true)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model ReferralEarning {
+  id                 String  @id @default(uuid())
+  referrer_driver_id String
+  referred_driver_id String
+  order_id           String  @unique
+  commission_id      String? @unique
+
+  amount          Decimal @db.Decimal(10, 2)
+  percent_applied Decimal @db.Decimal(5, 2)
+
+  created_at DateTime @default(now())
+
+  referrer   Driver            @relation("ReferrerEarnings", fields: [referrer_driver_id], references: [id], onDelete: Cascade)
+  referred   Driver            @relation("ReferredEarnings", fields: [referred_driver_id], references: [id], onDelete: Cascade)
+  order      Order             @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  commission DriverCommission? @relation(fields: [commission_id], references: [id], onDelete: SetNull)
+
+  @@index([referrer_driver_id])
+  @@index([referred_driver_id])
 }
 
 enum UserRole {

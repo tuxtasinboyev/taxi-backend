@@ -13,6 +13,7 @@ import { SocketGateway } from '../socket/socket.gateway';
 import { RedisGeoService } from './locations/redis-geo.service';
 import { UpdateOrderDto } from './orders.controller';
 import { NotificationService } from '../notification/notification.service';
+import { ReferralService } from '../referral/referral.service';
 
 @Injectable()
 export class OrdersService {
@@ -23,6 +24,7 @@ export class OrdersService {
         private readonly redisGeo: RedisGeoService,
         private readonly socketGateway: SocketGateway,
         private readonly notificationService: NotificationService,
+        private readonly referralService: ReferralService,
     ) { }
 
     async createOrder(dto: {
@@ -720,7 +722,7 @@ export class OrdersService {
         // DriverCommission yozish — kun oxirida haydovchi to'laydi
         const workDate = new Date();
         workDate.setHours(0, 0, 0, 0);
-        await this.prisma.driverCommission.upsert({
+        const driverCommission = await this.prisma.driverCommission.upsert({
             where: { order_id: orderId },
             update: {},
             create: {
@@ -733,6 +735,16 @@ export class OrdersService {
                 status: 'unpaid',
             },
         });
+
+        // Referal bonusi — narx/komissiyaga tegmaydi, platforma ulushidan alohida ajratiladi
+        await this.referralService
+            .awardReferralEarning({
+                referredDriverId: order.driver_id,
+                orderId,
+                commissionId: driverCommission.id,
+                commissionAmount: commissionAmt,
+            })
+            .catch((err) => this.logger.error('Referral earning award failed', err));
 
         this.logger.log(`✅ Order ${orderId} completed: driver ${order.driver_id} earned ${driverEarn}`);
         return updatedOrder;

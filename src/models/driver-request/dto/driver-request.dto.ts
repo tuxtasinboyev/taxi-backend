@@ -26,6 +26,14 @@ export class CreateDriverRequestDto {
     @IsString()
     @IsNotEmpty()
     license_number: string;
+
+    @ApiPropertyOptional({
+        example: 'YL-4F7K2Q',
+        description: "Sizni taklif qilgan haydovchining referal kodi (bo'lsa)",
+    })
+    @IsString()
+    @IsOptional()
+    referral_code?: string;
 }
 
 export class RejectDriverRequestDto {

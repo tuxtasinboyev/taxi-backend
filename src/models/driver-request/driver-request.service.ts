@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from 'src/config/database/database.service';
 import { SocketGateway } from 'src/models/socket/socket.gateway';
+import { ReferralService } from 'src/models/referral/referral.service';
 import { CreateDriverRequestDto, RejectDriverRequestDto } from './dto/driver-request.dto';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class DriverRequestService {
     constructor(
         private readonly prisma: DatabaseService,
         private readonly socketGateway: SocketGateway,
+        private readonly referralService: ReferralService,
     ) {}
 
     async createRequest(userId: string, dto: CreateDriverRequestDto) {
@@ -22,6 +24,13 @@ export class DriverRequestService {
             throw new BadRequestException('Sizda allaqachon kutilayotgan so\'rov mavjud');
         }
 
+        if (dto.referral_code) {
+            const referrerId = await this.referralService.validateReferralCode(dto.referral_code);
+            if (!referrerId) {
+                throw new BadRequestException("Referal kodi noto'g'ri");
+            }
+        }
+
         const request = await this.prisma.driverRequest.create({
             data: {
                 user_id: userId,
@@ -30,6 +39,7 @@ export class DriverRequestService {
                 car_model: dto.car_model,
                 car_number: dto.car_number,
                 license_number: dto.license_number,
+                referral_code: dto.referral_code,
             },
             include: {
                 user: {
@@ -124,6 +134,13 @@ export class DriverRequestService {
                 });
             }
         });
+
+        if (!existingDriver && req.referral_code) {
+            const referrerId = await this.referralService.validateReferralCode(req.referral_code);
+            if (referrerId) {
+                await this.referralService.linkReferral(req.user_id, referrerId);
+            }
+        }
 
         this.socketGateway.emitToUser(req.user_id, 'driver_request:accepted', {
             message: 'Tabriklaymiz! Siz haydovchi sifatida qabul qilindingiz.',
