@@ -151,6 +151,34 @@ export class DriverController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
+    @Role('admin', 'superadmin')
+    @ApiBearerAuth()
+    @Get('ranking')
+    @ApiOperation({ summary: "Haydovchilar reyting (rating) bo'yicha tartiblangan ro'yxati (admin)" })
+    @ApiQuery({ name: 'page', required: false, example: '1' })
+    @ApiQuery({ name: 'limit', required: false, example: '10' })
+    @ApiQuery({ name: 'language', required: false, enum: ['uz', 'ru', 'en'] })
+    async getDriverRanking(
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('language') language?: Language,
+    ) {
+        return this.driverService.getDriverRanking({ page, limit, language });
+    }
+
+    @UseGuards(GuardService)
+    @ApiBearerAuth()
+    @Get('ranking/me')
+    @ApiOperation({ summary: "Haydovchi o'zining reytingdagi o'rnini va atrofidagi haydovchilarni ko'radi" })
+    @ApiQuery({ name: 'around', required: false, example: '3', description: "Yuqori va pastda nechta haydovchi ko'rsatilsin" })
+    async getMyRanking(
+        @UserData() user: JwtPayload,
+        @Query('around') around?: string,
+    ) {
+        return this.driverService.getMyRanking(user.id, around ? parseInt(around, 10) : 3);
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
     @Role('admin')
     @ApiBearerAuth()
     @Patch(':id')

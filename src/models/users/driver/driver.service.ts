@@ -473,6 +473,110 @@ export class DriverService {
         };
     }
 
+    async getDriverRanking({
+        page,
+        limit,
+        language,
+    }: { page?: string; limit?: string; language?: Language } = {}) {
+        const pageNumber = page ? parseInt(page, 10) : 1;
+        const limitNumber = limit ? parseInt(limit, 10) : 10;
+
+        const [allDrivers, reviewCounts] = await Promise.all([
+            this.prisma.driver.findMany({
+                include: {
+                    user: {
+                        select: { name_uz: true, name_ru: true, name_en: true, profile_photo: true, phone: true },
+                    },
+                },
+            }),
+            this.prisma.review.groupBy({ by: ['to_user_id'], _count: { _all: true } }),
+        ]);
+
+        const countMap = new Map(reviewCounts.map((r) => [r.to_user_id, r._count._all]));
+
+        allDrivers.sort((a, b) => {
+            const ar = a.rating ? Number(a.rating) : -1;
+            const br = b.rating ? Number(b.rating) : -1;
+            return br - ar;
+        });
+
+        const nameField =
+            language === Language.ru ? 'name_ru' : language === Language.en ? 'name_en' : 'name_uz';
+
+        const ranked = allDrivers.map((d, index) => ({
+            rank: index + 1,
+            id: d.id,
+            name: d.user[nameField],
+            phone: d.user.phone,
+            photo: d.user.profile_photo,
+            car_number: d.car_number,
+            status: d.status,
+            rating: d.rating ? Number(d.rating) : 0,
+            review_count: countMap.get(d.id) ?? 0,
+        }));
+
+        const totalItems = ranked.length;
+        const totalPages = Math.ceil(totalItems / limitNumber);
+        const offset = (pageNumber - 1) * limitNumber;
+        const pageItems = ranked.slice(offset, offset + limitNumber);
+
+        return {
+            success: true,
+            message: 'Driver ranking retrieved successfully',
+            data: {
+                drivers: pageItems,
+                pagination: {
+                    totalItems,
+                    totalPages,
+                    currentPage: pageNumber,
+                    itemsPerPage: limitNumber,
+                },
+            },
+        };
+    }
+
+    async getMyRanking(driverId: string, around: number = 3) {
+        const allDrivers = await this.prisma.driver.findMany({
+            include: {
+                user: { select: { name_uz: true, name_ru: true, name_en: true, profile_photo: true } },
+            },
+        });
+
+        allDrivers.sort((a, b) => {
+            const ar = a.rating ? Number(a.rating) : -1;
+            const br = b.rating ? Number(b.rating) : -1;
+            return br - ar;
+        });
+
+        const myIndex = allDrivers.findIndex((d) => d.id === driverId);
+        if (myIndex === -1) {
+            return { success: false, message: 'Driver not found' };
+        }
+
+        const start = Math.max(0, myIndex - around);
+        const end = Math.min(allDrivers.length, myIndex + around + 1);
+
+        const neighbors = allDrivers.slice(start, end).map((d, i) => ({
+            rank: start + i + 1,
+            id: d.id,
+            name: d.user.name_uz ?? d.user.name_ru ?? d.user.name_en,
+            photo: d.user.profile_photo,
+            rating: d.rating ? Number(d.rating) : 0,
+            is_me: d.id === driverId,
+        }));
+
+        return {
+            success: true,
+            message: 'Ranking retrieved successfully',
+            data: {
+                my_rank: myIndex + 1,
+                total_drivers: allDrivers.length,
+                my_rating: allDrivers[myIndex].rating ? Number(allDrivers[myIndex].rating) : 0,
+                neighbors,
+            },
+        };
+    }
+
     async getDriverEarnings(userId: string, period: 'today' | 'weekly' | 'monthly' | 'all' = 'today') {
         const driver = await this.prisma.driver.findFirst({ where: { id: userId } });
         if (!driver) {
