@@ -386,6 +386,7 @@ export class UsersService {
         userId: string,
         data: Partial<CreateUserForAdminDto>,
         photoUrl?: string,
+        isAdmin = false,
     ) {
         const existsUser = await this.prisma.user.findUnique({
             where: { id: userId },
@@ -435,6 +436,8 @@ export class UsersService {
 
         if (data.password)
             updateData.password_hash = await bcrypt.hash(data.password, 10);
+
+        if (isAdmin && data.role) updateData.role = data.role;
 
         // 🔹 Yangilash
         const updatedUser = await this.prisma.user.update({

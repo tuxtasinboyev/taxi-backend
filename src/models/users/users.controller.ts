@@ -173,6 +173,25 @@ export class UsersController {
     }
 
     @UseGuards(GuardService, RoleGuardService)
+    @Role('admin','superadmin')
+    @ApiBearerAuth()
+    @Patch(':id')
+    @ApiOperation({ summary: 'Update user by id (Admin only)' })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody(putApiBody)
+    @ApiResponse(putRessponse)
+    @ApiResponse({ status: 404, description: 'User not found' })
+    @ApiResponse({ status: 409, description: 'User already exists' })
+    @UseInterceptors(FileInterceptor('photo', fileStorages(['image'])))
+    async updateUserById(
+        @Param('id') id: string,
+        @Body() data: Partial<CreateUserForAdminDto>,
+        @UploadedFile() photo?: Express.Multer.File,
+    ) {
+        return this.usersService.updateMe(id, data, photo?.filename, true);
+    }
+
+    @UseGuards(GuardService, RoleGuardService)
     @ApiBearerAuth()
     @Role('admin','superadmin')
     @Delete(':id')
