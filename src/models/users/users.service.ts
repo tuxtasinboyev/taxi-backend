@@ -1,5 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { urlGenerator } from 'src/common/types/generator.types';
 import { DatabaseService } from 'src/config/database/database.service';
@@ -8,7 +9,10 @@ import { CreateUserForAdminDto } from './dto/user.dto';
 @Injectable()
 export class UsersService {
     constructor(private prisma: DatabaseService, private config: ConfigService) { }
-    async createUser(data: CreateUserForAdminDto, photoUrl: string) {
+    async createUser(data: CreateUserForAdminDto, photoUrl?: string) {
+        if (data.role === UserRole.driver && !photoUrl) {
+            throw new BadRequestException('Driver uchun rasm (photo) majburiy')
+        }
         const existsEmail = await this.prisma.user.findUnique({
             where: { email: data.email }
         })
@@ -18,7 +22,7 @@ export class UsersService {
         if (existsEmail || existsPhone) {
             throw new ConflictException('this user already exists')
         }
-        const photo = urlGenerator(this.config, photoUrl)
+        const photo = photoUrl ? urlGenerator(this.config, photoUrl) : undefined
         const passwordHash = await bcrypt.hash(data.password, 10)
         if (data.lang === Language.en) {
             const createUser = await this.prisma.user.create({

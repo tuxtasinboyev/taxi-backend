@@ -50,7 +50,7 @@ export class UsersController {
         @Body() data: CreateUserForAdminDto,
         @UploadedFile() photo: Express.Multer.File,
     ) {
-        return this.usersService.createUser(data, photo.filename);
+        return this.usersService.createUser(data, photo?.filename);
     }
 
 
